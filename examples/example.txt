@@ -1,0 +1,16 @@
+function main()
+{
+    def abc as 1234567890;
+    abc = 0;
+
+    while (abc <= 5) {
+        print abc;
+        abc = abc+1;
+    }
+
+    print abc;
+    return 0;
+}
+
+
+
