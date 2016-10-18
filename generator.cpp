@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <llvm/ADT/APInt.h>
+#include <llvm/IR/InstrTypes.h>
 #include "generator.h"
 
 void Generator::use_io() {
@@ -20,22 +21,92 @@ void Generator::use_io() {
 
 void Generator::generate(Node *n) {
     switch(n->kind) {
-        case Node::DEF:
-            table.insert(std::pair<std::string, Value *>(n->var_name, builder->CreateAlloca(Type::getInt32Ty(context),
-                                                                                            nullptr,
-                                                                                            n->var_name + "_ptr")));
+        case Node::NEW: {
+            if (n->o1 != NULL) {
+                if (n->o1->kind == Node::ARRAY) {
+                    Node *arr = n->o1;
+                    generate(arr->o1);
+                    Value *elements_count_val = stack.top();
+                    stack.pop();
 
-            if (n->value_type == Node::integer) {
-                generate(n->o1);
-                Value *val = stack.top();
-                stack.pop();
+                    int64_t elements_count = 0;
 
-                builder->CreateStore(val, table.at(n->var_name));
+                    if (llvm::ConstantInt *CI = dyn_cast<llvm::ConstantInt>(elements_count_val)) {
+                        if (CI->getBitWidth() <= 32) {
+                            elements_count = CI->getSExtValue();
+                        }
+                    }
+
+                    if (arr->value_type == Node::integer) {
+                        table.insert(
+                                std::pair<std::string, Value *>(n->var_name, builder->CreateAlloca(
+                                        ArrayType::get(Type::getInt32Ty(context),
+                                                       static_cast<uint64_t>(elements_count)),
+                                        nullptr,
+                                        n->var_name + "_ptr")));
+                    }
+                }
+            }
+            else {
+                if (n->value_type == Node::integer) {
+                    table.insert(
+                            std::pair<std::string, Value *>(n->var_name, builder->CreateAlloca(Type::getInt32Ty(context),
+                                                                                               nullptr,
+                                                                                               n->var_name + "_ptr")));
+                }
+                else if (n->value_type == Node::floating) {
+                    table.insert(
+                            std::pair<std::string, Value *>(n->var_name, builder->CreateAlloca(Type::getFloatTy(context),
+                                                                                               nullptr,
+                                                                                               n->var_name + "_ptr")));
+                }
             }
 
             break;
-        case Node::VAR: {
+        }
+        case Node::INIT: {
+            if (n->value_type == Node::integer) {
+                table.insert(
+                        std::pair<std::string, Value *>(n->var_name, builder->CreateAlloca(Type::getInt32Ty(context),
+                                                                                           nullptr,
+                                                                                           n->var_name + "_ptr")));
+
+            }
+            else if (n->value_type == Node::floating) {
+                table.insert(
+                        std::pair<std::string, Value *>(n->var_name, builder->CreateAlloca(Type::getFloatTy(context),
+                                                                                           nullptr,
+                                                                                           n->var_name + "_ptr")));
+            }
+
+            generate(n->o1);
+            Value *val = stack.top();
+            stack.pop();
+
+            builder->CreateStore(val, table.at(n->var_name));
+            break;
+        }
+        case Node::DELETE:
+            table.erase(n->var_name);
+            break;
+        case Node::VAR:
             stack.push(builder->CreateLoad(Type::getInt32Ty(context), table.at(n->var_name), n->var_name));
+            break;
+        case Node::ARRAY_ACCESS: {
+            generate(n->o1);
+            Value *elements_count_val = stack.top();
+            stack.pop();
+
+            Value *arr_ptr = table.at(n->var_name);
+            stack.push(
+                    builder->CreateLoad(builder->CreateGEP(
+                            arr_ptr,
+                            { ConstantInt::get(Type::getInt32Ty(context), 0),
+                              elements_count_val
+                            },
+                            n->var_name), n->var_name)
+                    );
+
             break;
         }
         case Node::CONST: {
@@ -49,9 +120,11 @@ void Generator::generate(Node *n) {
             generate(n->o1);
             Value *left = stack.top();
             stack.pop();
+
             generate(n->o2);
             Value *right = stack.top();
             stack.pop();
+
             Value *sum = builder->CreateAdd(left, right, "add");
             stack.push(sum);
 
@@ -61,9 +134,11 @@ void Generator::generate(Node *n) {
             generate(n->o1);
             Value *left = stack.top();
             stack.pop();
+
             generate(n->o2);
             Value *right = stack.top();
             stack.pop();
+
             Value *sum = builder->CreateSub(left, right, "sub");
             stack.push(sum);
 
@@ -73,9 +148,11 @@ void Generator::generate(Node *n) {
             generate(n->o1);
             Value *left = stack.top();
             stack.pop();
+
             generate(n->o2);
             Value *right = stack.top();
             stack.pop();
+
             Value *sum = builder->CreateMul(left, right, "mul");
             stack.push(sum);
 
@@ -85,20 +162,13 @@ void Generator::generate(Node *n) {
             generate(n->o1);
             Value *left = stack.top();
             stack.pop();
+
             generate(n->o2);
             Value *right = stack.top();
             stack.pop();
+
             Value *sum = builder->CreateSDiv(left, right, "div");
             stack.push(sum);
-
-            break;
-        }
-        case Node::INCREMENT: {
-            generate(n->o1);
-            Value *left = stack.top();
-            stack.pop();
-
-            builder->CreateStore(builder->CreateAdd(left, ConstantInt::get(Type::getInt32Ty(context), APInt(32, 1))), table.at(left->getName()));
 
             break;
         }
@@ -179,7 +249,24 @@ void Generator::generate(Node *n) {
             Value *val = stack.top();
             stack.pop();
 
-            builder->CreateStore(val, table.at(n->var_name));
+            if (n->o2 != NULL) { // if we'll change value of array's element
+                generate(n->o2);
+                Value *elements_count_val = stack.top();
+                stack.pop();
+
+                Value *arr_ptr = table.at(n->var_name);
+                builder->CreateStore(val, builder->CreateGEP(
+                        arr_ptr,
+                        {
+                                ConstantInt::get(Type::getInt32Ty(context), 0),
+                                elements_count_val
+                        },
+                        n->var_name)
+                );
+            } else {
+                table.at(n->var_name)->dump();
+                builder->CreateStore(val, table.at(n->var_name));
+            }
 
             break;
         }
@@ -196,6 +283,11 @@ void Generator::generate(Node *n) {
 
             builder->SetInsertPoint(thenBlock);
             generate(n->o2);
+
+            builder->CreateBr(mergeBlock);
+
+            parent->getBasicBlockList().push_back(elseBlock);
+            builder->SetInsertPoint(elseBlock);
 
             builder->CreateBr(mergeBlock);
 
@@ -267,6 +359,44 @@ void Generator::generate(Node *n) {
 
             break;
         }
+        case Node::REPEAT: { // FIXME
+            if (table.count("index") == 0)
+            {
+                table.insert(std::pair<std::string, Value *>("index", builder->CreateAlloca(Type::getInt32Ty(context),
+                                                                                            nullptr,
+                                                                                            "index_ptr")));
+            }
+
+            builder->CreateStore(ConstantInt::get(Type::getInt32Ty(context), APInt(32, 0)),
+                                 table.at("index"));
+
+            Function *parent = builder->GetInsertBlock()->getParent();
+            BasicBlock *loopBlock = BasicBlock::Create(context, "loop", parent);
+            builder->CreateBr(loopBlock);
+            builder->SetInsertPoint(loopBlock);
+            generate(n->o2);
+
+            generate(n->o1);
+            Value *times = stack.top();
+            stack.pop();
+
+            Value *counter = table.at("index");
+            Value *counter_val = builder->CreateLoad(Type::getInt32Ty(context), counter, "index");
+            Value *incr = builder->CreateAdd(counter_val, ConstantInt::get(Type::getInt32Ty(context),
+                                                                           APInt(32, 1)), "incr");
+            builder->CreateStore(incr, table.at("index"));
+
+            Value *condition = builder->CreateICmpSLT(incr, times, "condition");
+
+            BasicBlock *afterBlock = BasicBlock::Create(context, "afterloop", parent);
+            builder->CreateCondBr(condition, loopBlock, afterBlock);
+
+            builder->SetInsertPoint(afterBlock);
+            builder->CreateStore(ConstantInt::get(Type::getInt32Ty(context), APInt(32, 0)),
+                                 table.at("index"));
+
+            break;
+        }
         case Node::FUNCTION_DEFINE: {
             FunctionType *type = FunctionType::get(Type::getInt32Ty(context), false);
             Function *func = Function::Create(type, Function::ExternalLinkage, n->var_name, module);
@@ -288,7 +418,7 @@ void Generator::generate(Node *n) {
         case Node::EXPR:
             generate(n->o1);
             break;
-        case Node::RETURN: {
+        case Node::RETURN:
             generate(n->o1);
 
             builder->CreateRet(stack.top());
@@ -296,7 +426,6 @@ void Generator::generate(Node *n) {
             stack.pop();
 
             break;
-        }
         case Node::PRINT: {
             if (!io_using)
                 use_io();

@@ -5,6 +5,7 @@
 #include "parser.h"
 
 #include <iostream>
+#include <algorithm>
 #include <stdlib.h>
 
 void Parser::error(const std::string &e) {
@@ -20,6 +21,20 @@ Node *Parser::term() {
         x->var_name = lexer->str_val;
 
         lexer->next_token();
+        if (lexer->sym == Lexer::L_ACCESS) {
+            x->kind = Node::ARRAY_ACCESS;
+            lexer->next_token();
+            x->o1 = sum();
+
+            if (lexer->sym != Lexer::R_ACCESS) {
+                std::cerr << lexer->sym << std::endl;
+                error("Expected ']'");
+            }
+
+            lexer->next_token();
+            x->value_type = Node::integer;
+        }
+
     } else if (lexer->sym == Lexer::NUM) {
         x = new Node(Node::CONST);
         x->value_type = Node::integer;
@@ -67,6 +82,8 @@ Node *Parser::sum() {
 
         x->o1 = t;
         x->o2 = term();
+
+        x->value_type = x->o2->value_type;
     }
 
     return x;
@@ -137,7 +154,7 @@ Node *Parser::expr() {
 
     x = test();
 
-    if (x->kind == Node::VAR) {
+    if (x->kind == Node::VAR || x->kind == Node::ARRAY_ACCESS) {
         if (lexer->sym == Lexer::EQUAL) {
             t = x;
             x = new Node(Node::SET);
@@ -145,7 +162,12 @@ Node *Parser::expr() {
             lexer->next_token();
 
             x->var_name = t->var_name;
+
+            if (t->kind == Node::ARRAY_ACCESS)
+                x->o2 = t->o1;
+
             x->o1 = expr();
+            x->value_type = Node::integer;
         }
     }
 
@@ -153,8 +175,10 @@ Node *Parser::expr() {
 }
 
 Node *Parser::paren_expr() {
-    if (lexer->sym != Lexer::L_PARENT)
+    if (lexer->sym != Lexer::L_PARENT) {
+        std::cerr << lexer->sym << std::endl;
         error("'(' expected");
+    }
 
     lexer->next_token();
     Node *n = expr();
@@ -174,7 +198,7 @@ Node *Parser::statement() {
             x = new Node(Node::IF);
             lexer->next_token();
 
-            x->o1 = paren_expr();
+            x->o1 = expr(); //paren_expr();
             x->o2 = statement();
 
             if (lexer->sym == Lexer::ELSE) {
@@ -189,7 +213,7 @@ Node *Parser::statement() {
             x = new Node(Node::WHILE);
             lexer->next_token();
 
-            x->o1 = paren_expr();
+            x->o1 = expr(); //paren_expr();
             x->o2 = statement();
 
             break;
@@ -205,12 +229,21 @@ Node *Parser::statement() {
 
             lexer->next_token();
 
-            x->o2 = paren_expr();
+            x->o2 = expr(); //paren_expr();
 
             if (lexer->sym != Lexer::SEMICOLON)
                 error("';' expected");
 
             lexer->next_token();
+
+            break;
+        }
+        case Lexer::REPEAT: {
+            x = new Node(Node::REPEAT);
+            lexer->next_token();
+
+            x->o1 = sum(); //paren_expr();
+            x->o2 = statement();
 
             break;
         }
@@ -222,7 +255,7 @@ Node *Parser::statement() {
             x = new Node(Node::FUNCTION_DEFINE);
             x->var_name = lexer->str_val;
 
-            lexer->next_token();
+            lexer->next_token(); // FIXME
             lexer->next_token();
             lexer->next_token();
 
@@ -230,20 +263,62 @@ Node *Parser::statement() {
 
             break;
         }
-        case Lexer::DEF: {
+        case Lexer::NEW: {
             lexer->next_token(true);
             lexer->vars.push_back(lexer->str_val);
 
-            x = new Node(Node::DEF);
-            x->var_name = lexer->str_val;
+            x = new Node(Node::NEW);
+            std::string var_name = lexer->str_val;
+
+            x->var_name = var_name;
 
             lexer->next_token();
 
-            if (lexer->sym == Lexer::AS) {
+            if (lexer->sym == Lexer::EQUAL) {
                 lexer->next_token();
-                x->value_type = Lexer::integer;
-                x->o1 = sum();
+
+                if (lexer->sym == Lexer::ARRAY) {
+                    lexer->arrays.push_back(var_name);
+                    lexer->next_token();
+                    Node *arr = new Node(Node::ARRAY);
+
+                    if (lexer->sym != Lexer::OF)
+                        error("Expected array type while initialization");
+
+                    lexer->next_token();
+
+                    if (lexer->sym == Lexer::INTEGER)
+                        arr->value_type = Node::integer;
+                    else if (lexer->sym == Lexer::FLOATING)
+                        arr->value_type = Node::floating;
+
+                    lexer->next_token();
+                    arr->o1 = paren_expr();
+
+                    x->o1 = arr;
+                } else if (lexer->sym == Lexer::INTEGER || lexer->sym == Lexer::FLOATING) {
+                    lexer->vars.push_back(var_name);
+                    x->value_type = (lexer->sym == Lexer::INTEGER) ? Node::integer : Node::floating;
+                    lexer->next_token();
+                } else {
+                    lexer->vars.push_back(var_name);
+                    x->kind = Node::INIT;
+                    x->o1 = sum();
+                    x->value_type = x->o1->value_type;
+                }
             }
+            else error("Expected variable type");
+
+            break;
+        }
+        case Lexer::DELETE: {
+            lexer->next_token();
+            lexer->vars.erase(std::remove(lexer->vars.begin(), lexer->vars.end(), lexer->str_val), lexer->vars.end());
+
+            x = new Node(Node::DELETE);
+            x->var_name = lexer->str_val;
+
+            lexer->next_token();
 
             break;
         }
@@ -254,6 +329,10 @@ Node *Parser::statement() {
             x->var_name = lexer->str_val;
 
             lexer->next_token();
+
+            if (lexer->sym != Lexer::SEMICOLON)
+                error("';' expected");
+
             lexer->next_token();
 
             break;

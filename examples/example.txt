@@ -1,14 +1,22 @@
 function main()
 {
-    def abc as 1234567890;
-    abc = 0;
-
-    while (abc <= 5) {
-        print abc;
-        abc = abc+1;
+    new arr = array of int(10);
+    repeat 10 {
+        arr[index] = index+1;
     }
 
-    print abc;
+    repeat 10 {
+        print arr[index];
+    }
+
+    new var = arr[0];
+
+    print "";
+    print var;
+
+    input var;
+    print var;
+
     return 0;
 }
 

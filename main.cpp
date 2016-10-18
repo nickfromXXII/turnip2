@@ -81,6 +81,8 @@ int main(int argc, char **argv) {
     Generator* generator = new Generator;
     generator->generate(ast);
 
+    generator->module->dump();
+
     std::string output = "a.out";
     if (argc >= 3)
         output = std::string(argv[2]);
