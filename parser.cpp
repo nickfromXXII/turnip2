@@ -259,8 +259,26 @@ Node *Parser::statement() {
             lexer->next_token();
             lexer->next_token();
 
-            x->o2 = statement();
+            if (lexer->sym != Lexer::TYPE)
+                x->value_type = Node::null;
+            else {
+                lexer->next_token();
 
+                if (lexer->sym != Lexer::INTEGER && lexer->sym != Lexer::FLOATING)
+                    error("expected type of return value");
+
+                switch (lexer->sym) {
+                    case Lexer::INTEGER:
+                        x->value_type = Node::integer;
+                        break;
+                    case Lexer::FLOATING:
+                        x->value_type = Node::floating;
+                        break;
+                }
+                lexer->next_token();
+            }
+
+            x->o2 = statement();
             break;
         }
         case Lexer::NEW: {

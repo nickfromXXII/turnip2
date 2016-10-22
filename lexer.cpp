@@ -92,6 +92,11 @@ void Lexer::next_token(bool ignore) {
             sym = R_ACCESS;
             break;
         }
+        case ':': {
+            getc();
+            sym = TYPE;
+            break;
+        }
         case '"': {
             std::string str = "";
             getc();

@@ -24,7 +24,7 @@ public:
     void next_token(bool ignore = false);
 
     int sym;
-    int line = 0;
+    int line = 1;
 
     int num_val;
     std::string str_val;
@@ -43,7 +43,7 @@ public:
         L_BRACKET, R_BRACKET,
         L_PARENT, R_PARENT,
         PLUS, MINUS, STAR, SLASH,
-        LESS, MORE, IS, EQUAL, SEMICOLON,
+        LESS, MORE, IS, EQUAL, TYPE, SEMICOLON,
         PRINT, INPUT,
         FUNCTION, RETURN,
         EOI

@@ -398,7 +398,17 @@ void Generator::generate(Node *n) {
             break;
         }
         case Node::FUNCTION_DEFINE: {
-            FunctionType *type = FunctionType::get(Type::getInt32Ty(context), false);
+            FunctionType *type;
+            switch (n->value_type) {
+                case Node::integer:
+                    type = FunctionType::get(Type::getInt32Ty(context), false);
+                    break;
+                case Node::floating:
+                    type = FunctionType::get(Type::getFloatTy(context), false);
+                    break;
+                default:
+                    type = FunctionType::get(Type::getVoidTy(context), false);
+            }
             Function *func = Function::Create(type, Function::ExternalLinkage, n->var_name, module);
 
             functions.insert(std::pair<std::string, Function*>(n->var_name, func));

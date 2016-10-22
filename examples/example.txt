@@ -1,4 +1,4 @@
-function main()
+function main() : int
 {
     new arr = array of int(10);
     repeat 10 {
@@ -15,10 +15,17 @@ function main()
     print var;
 
     input var;
+
+    if var is 0
+        print "var is null";
+    else
+        print "var isn't null";
+
+    new b = int(0);
+    while b < 5
+        input b;
+
     print var;
 
     return 0;
 }
-
-
-
