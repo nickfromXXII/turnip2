@@ -9,8 +9,7 @@
 #include <stdlib.h>
 
 void Parser::error(const std::string &e) {
-    std::cerr << "Parse error at line " << std::to_string(lexer->line) << ": " << e << std::endl;
-    exit(1);
+    throw std::string("Parse error at line " + std::to_string(lexer->line) + ": " + e);
 }
 
 Node *Parser::term() {
@@ -286,38 +285,43 @@ Node *Parser::statement() {
             lexer->vars.push_back(lexer->str_val);
 
             x = new Node(Node::NEW);
-            std::string var_name = lexer->str_val;
 
+            std::string var_name = lexer->str_val;
             x->var_name = var_name;
 
             lexer->next_token();
+            if (lexer->sym != Lexer::TYPE)
+                error("expected variable type");
 
+            lexer->next_token();
+            if (lexer->sym != Lexer::INTEGER && lexer->sym != Lexer::FLOATING)
+                error("expected variable type");
+
+            switch (lexer->sym) {
+                case Lexer::INTEGER:
+                    x->value_type = Node::integer;
+                    break;
+                case Lexer::FLOATING:
+                    x->value_type = Node::floating;
+                    break;
+            }
+
+            lexer->next_token();
             if (lexer->sym == Lexer::EQUAL) {
                 lexer->next_token();
-
                 if (lexer->sym == Lexer::ARRAY) {
                     lexer->arrays.push_back(var_name);
                     lexer->next_token();
                     Node *arr = new Node(Node::ARRAY);
 
                     if (lexer->sym != Lexer::OF)
-                        error("Expected array type while initialization");
+                        error("expected array size");
 
                     lexer->next_token();
-
-                    if (lexer->sym == Lexer::INTEGER)
-                        arr->value_type = Node::integer;
-                    else if (lexer->sym == Lexer::FLOATING)
-                        arr->value_type = Node::floating;
-
-                    lexer->next_token();
-                    arr->o1 = paren_expr();
+                    arr->value_type = x->value_type;
+                    arr->o1 = sum();
 
                     x->o1 = arr;
-                } else if (lexer->sym == Lexer::INTEGER || lexer->sym == Lexer::FLOATING) {
-                    lexer->vars.push_back(var_name);
-                    x->value_type = (lexer->sym == Lexer::INTEGER) ? Node::integer : Node::floating;
-                    lexer->next_token();
                 } else {
                     lexer->vars.push_back(var_name);
                     x->kind = Node::INIT;
@@ -325,7 +329,6 @@ Node *Parser::statement() {
                     x->value_type = x->o1->value_type;
                 }
             }
-            else error("Expected variable type");
 
             break;
         }

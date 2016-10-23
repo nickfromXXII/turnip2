@@ -24,6 +24,7 @@ public:
     int value_type = val_type::null;
 
     int int_val = -1;
+    float float_val = 0.0;
     std::string str_val = "";
 
     std::string var_name = "";

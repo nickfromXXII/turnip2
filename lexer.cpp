@@ -13,8 +13,7 @@ void Lexer::load(std::vector<char> c) {
 }
 
 void Lexer::error(const std::string &e) {
-    std::cout << "Analyze error at line " << std::to_string(line) << ": " << e << std::endl;
-    exit(1);
+    throw std::string("Analyze error at line " + std::to_string(line) + ": " + e);
 }
 
 void Lexer::getc() {

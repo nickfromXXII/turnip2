@@ -1,6 +1,6 @@
 function main() : int
 {
-    new arr = array of int(10);
+    new arr: int = array of 10;
     repeat 10 {
         arr[index] = index+1;
     }
@@ -9,7 +9,7 @@ function main() : int
         print arr[index];
     }
 
-    new var = arr[0];
+    new var: float = arr[0];
 
     print "";
     print var;
@@ -21,11 +21,14 @@ function main() : int
     else
         print "var isn't null";
 
-    new b = int(0);
-    while b < 5
+    print var;
+
+    new b: int = 0;
+    while b is not 5
         input b;
 
-    print var;
+    arr[0+9] = 9;
+    print arr[1];
 
     return 0;
 }

@@ -37,46 +37,62 @@ void Generator::generate(Node *n) {
                         }
                     }
 
-                    if (arr->value_type == Node::integer) {
-                        table.insert(
-                                std::pair<std::string, Value *>(n->var_name, builder->CreateAlloca(
-                                        ArrayType::get(Type::getInt32Ty(context),
-                                                       static_cast<uint64_t>(elements_count)),
-                                        nullptr,
-                                        n->var_name + "_ptr")));
+                    switch (arr->value_type) {
+                        case Node::integer:
+                            table.insert(
+                                    std::pair<std::string, Value *>(n->var_name, builder->CreateAlloca(
+                                            ArrayType::get(Type::getInt32Ty(context),
+                                                           static_cast<uint64_t>(elements_count)),
+                                            nullptr,
+                                            n->var_name + "_ptr")));
+                            break;
+                        case Node::floating:
+                            table.insert(
+                                    std::pair<std::string, Value *>(n->var_name, builder->CreateAlloca(
+                                            ArrayType::get(Type::getFloatTy(context),
+                                                           static_cast<uint64_t>(elements_count)),
+                                            nullptr,
+                                            n->var_name + "_ptr")));
+                            break;
                     }
                 }
             }
             else {
-                if (n->value_type == Node::integer) {
-                    table.insert(
-                            std::pair<std::string, Value *>(n->var_name, builder->CreateAlloca(Type::getInt32Ty(context),
-                                                                                               nullptr,
-                                                                                               n->var_name + "_ptr")));
-                }
-                else if (n->value_type == Node::floating) {
-                    table.insert(
-                            std::pair<std::string, Value *>(n->var_name, builder->CreateAlloca(Type::getFloatTy(context),
-                                                                                               nullptr,
-                                                                                               n->var_name + "_ptr")));
+                switch (n->value_type) {
+                    case Node::integer:
+                        table.insert(
+                                std::pair<std::string, Value *>(n->var_name,
+                                                                builder->CreateAlloca(Type::getInt32Ty(context),
+                                                                                      nullptr,
+                                                                                      n->var_name + "_ptr")));
+                        break;
+                    case Node::floating:
+                        table.insert(
+                                std::pair<std::string, Value *>(n->var_name,
+                                                                builder->CreateAlloca(Type::getFloatTy(context),
+                                                                                      nullptr,
+                                                                                      n->var_name + "_ptr")));
+                        break;
                 }
             }
-
             break;
         }
         case Node::INIT: {
-            if (n->value_type == Node::integer) {
-                table.insert(
-                        std::pair<std::string, Value *>(n->var_name, builder->CreateAlloca(Type::getInt32Ty(context),
-                                                                                           nullptr,
-                                                                                           n->var_name + "_ptr")));
-
-            }
-            else if (n->value_type == Node::floating) {
-                table.insert(
-                        std::pair<std::string, Value *>(n->var_name, builder->CreateAlloca(Type::getFloatTy(context),
-                                                                                           nullptr,
-                                                                                           n->var_name + "_ptr")));
+            switch (n->value_type) {
+                case Node::integer:
+                    table.insert(
+                            std::pair<std::string, Value *>(n->var_name,
+                                                            builder->CreateAlloca(Type::getInt32Ty(context),
+                                                                                  nullptr,
+                                                                                  n->var_name + "_ptr")));
+                    break;
+                case Node::floating:
+                    table.insert(
+                            std::pair<std::string, Value *>(n->var_name,
+                                                            builder->CreateAlloca(Type::getFloatTy(context),
+                                                                                  nullptr,
+                                                                                  n->var_name + "_ptr")));
+                    break;
             }
 
             generate(n->o1);
@@ -101,8 +117,9 @@ void Generator::generate(Node *n) {
             stack.push(
                     builder->CreateLoad(builder->CreateGEP(
                             arr_ptr,
-                            { ConstantInt::get(Type::getInt32Ty(context), 0),
-                              elements_count_val
+                            {
+                                    ConstantInt::get(Type::getInt32Ty(context), 0),
+                                    elements_count_val
                             },
                             n->var_name), n->var_name)
                     );
@@ -110,10 +127,17 @@ void Generator::generate(Node *n) {
             break;
         }
         case Node::CONST: {
-            if (n->value_type == Node::string)
-                stack.push(builder->CreateGlobalStringPtr(n->str_val));
-            else if (n->value_type == Node::integer)
-                stack.push(ConstantInt::get(context, APInt(32, static_cast<uint64_t>(n->int_val))));
+            switch (n->value_type) {
+                case Node::string:
+                    stack.push(builder->CreateGlobalStringPtr(n->str_val));
+                    break;
+                case Node::integer:
+                    stack.push(ConstantInt::get(context, APInt(32, static_cast<uint64_t>(n->int_val))));
+                    break;
+                case Node::floating:
+                    stack.push(ConstantFP::get(context, APFloat(n->float_val)));
+                    break;
+            }
             break;
         }
         case Node::ADD: {
