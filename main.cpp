@@ -72,20 +72,29 @@ int main(int argc, char **argv) {
     }
     code.push_back(EOF);
 
-    Lexer *lexer = new Lexer;
-    lexer->load(code);
+    try {
+        Lexer *lexer = new Lexer;
+        lexer->load(code);
 
-    Parser *parser = new Parser(lexer);
-    Node *ast = parser->parse();
+        Parser *parser = new Parser(lexer);
+        Node *ast = parser->parse();
 
-    Generator* generator = new Generator;
-    generator->generate(ast);
+        Generator *generator = new Generator;
+        generator->generate(ast);
 
-    std::string output = "a.out";
-    if (argc >= 3)
-        output = std::string(argv[2]);
+        generator->module->dump();
 
-    generateObject(generator->module, output);
+
+        std::string output = "a.out";
+        if (argc >= 3)
+            output = std::string(argv[2]);
+
+        generateObject(generator->module, output);
+    }
+    catch (const std::string &err) {
+        std::cerr << err << std::endl;
+        return 1;
+    }
 
     return 0;
 }

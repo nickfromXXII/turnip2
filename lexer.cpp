@@ -13,8 +13,7 @@ void Lexer::load(std::vector<char> c) {
 }
 
 void Lexer::error(const std::string &e) {
-    std::cout << "Analyze error at line " << std::to_string(line) << ": " << e << std::endl;
-    exit(1);
+    throw std::string("Analyze error at line " + std::to_string(line) + ": " + e);
 }
 
 void Lexer::getc() {
@@ -82,6 +81,21 @@ void Lexer::next_token(bool ignore) {
             getc();
             sym = SEMICOLON;
             break;
+        case '[': {
+            getc();
+            sym = L_ACCESS;
+            break;
+        }
+        case ']': {
+            getc();
+            sym = R_ACCESS;
+            break;
+        }
+        case ':': {
+            getc();
+            sym = TYPE;
+            break;
+        }
         case '"': {
             std::string str = "";
             getc();
@@ -95,6 +109,7 @@ void Lexer::next_token(bool ignore) {
             str_val = str;
 
             getc();
+            break;
         }
         default: {
             if (isdigit(ch)) {
@@ -123,6 +138,11 @@ void Lexer::next_token(bool ignore) {
                 }
 
                 if (sym == -1) {
+                    if (str == "index") {
+                        sym = ID;
+                        str_val = str;
+                    }
+
                     for (auto &&item : vars) {
                         if (str == item)
                             sym = ID;

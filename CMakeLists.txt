@@ -18,20 +18,20 @@ target_link_libraries (turnip2
 
         ##LLVMX86Disassembler
         LLVMX86AsmParser
-        LLVMX86AsmPrinter
+        ##LLVMX86AsmPrinter
         LLVMX86CodeGen
 
-        ##LLVMSelectionDAG
+        #LLVMSelectionDAG
 
-        ##LLVMAsmPrinter
-        ##LLVMMCParser
-        #LLVMX86Info
+        LLVMAsmPrinter
+        LLVMMCParser
+        LLVMX86Info
 
         ##LLVMExecutionEngine
 
-        ##LLVMCodeGen
-        ##LLVMScalarOpts
-        ##LLVMTransformUtils
+        LLVMCodeGen
+        LLVMScalarOpts
+        LLVMTransformUtils
 
         LLVMAnalysis
         LLVMTarget

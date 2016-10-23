@@ -24,33 +24,47 @@ public:
     void next_token(bool ignore = false);
 
     int sym;
-    int line = -1;
+    int line = 1;
 
     int num_val;
     std::string str_val;
 
-    enum data_types { null, integer, string };
     std::vector<std::string> vars;
+    std::vector<std::string> arrays;
     std::vector<std::string> functions;
 
     enum token_types {
-        NUM, STR, ID, FUNCTION_ID, IF, NOT, ELSE, WHILE, DO, DEF, AS,
-        L_BRACKET, R_BRACKET, L_PARENT, R_PARENT, QUOTE,
-        PLUS, MINUS, STAR, SLASH, LESS, MORE, IS, EQUAL, SEMICOLON,
-        EOI, PRINT, INPUT, FUNCTION, RETURN
+        NUM, STR, ID, FUNCTION_ID,
+        ARRAY, OF, INTEGER, FLOATING,
+        IF, NOT, ELSE,
+        WHILE, DO, REPEAT,
+        NEW, DELETE,
+        L_ACCESS, R_ACCESS,
+        L_BRACKET, R_BRACKET,
+        L_PARENT, R_PARENT,
+        PLUS, MINUS, STAR, SLASH,
+        LESS, MORE, IS, EQUAL, TYPE, SEMICOLON,
+        PRINT, INPUT,
+        FUNCTION, RETURN,
+        EOI
     };
 
     std::map<std::string, int> WORDS = {
+            {"array", ARRAY},
+            {"of", OF},
+            {"int", INTEGER},
+            {"float", FLOATING},
             {"if", IF},
             {"else", ELSE},
-            {"do", DO},
             {"while", WHILE},
+            {"do", DO},
+            {"repeat", REPEAT},
+            {"new", NEW},
+            {"del", DELETE},
             {"is", IS},
             {"not", NOT},
             {"print", PRINT},
             {"input", INPUT},
-            {"def", DEF},
-            {"as", AS},
             {"function", FUNCTION},
             {"return", RETURN}
     };

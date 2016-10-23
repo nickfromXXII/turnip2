@@ -1,16 +1,34 @@
-function main()
+function main() : int
 {
-    def abc as 1234567890;
-    abc = 0;
-
-    while (abc <= 5) {
-        print abc;
-        abc = abc+1;
+    new arr: int = array of 10;
+    repeat 10 {
+        arr[index] = index+1;
     }
 
-    print abc;
+    repeat 10 {
+        print arr[index];
+    }
+
+    new var: float = arr[0];
+
+    print "";
+    print var;
+
+    input var;
+
+    if var is 0
+        print "var is null";
+    else
+        print "var isn't null";
+
+    print var;
+
+    new b: int = 0;
+    while b is not 5
+        input b;
+
+    arr[0+9] = 9;
+    print arr[1];
+
     return 0;
 }
-
-
-
