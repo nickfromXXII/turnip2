@@ -173,6 +173,39 @@ Node *Parser::expr() {
     return x;
 }
 
+Node *Parser::function_arg() {
+    Node *n;
+
+    lexer->next_token(true);
+    lexer->vars.push_back(lexer->str_val);
+
+    n = new Node(Node::ARG);
+
+    std::string var_name = lexer->str_val;
+    n->var_name = var_name;
+
+    lexer->next_token();
+    if (lexer->sym != Lexer::TYPE)
+        error("expected variable type");
+
+    lexer->next_token();
+    if (lexer->sym != Lexer::INTEGER && lexer->sym != Lexer::FLOATING)
+        error("expected variable type");
+
+    switch (lexer->sym) {
+        case Lexer::INTEGER:
+            n->value_type = Node::integer;
+            break;
+        case Lexer::FLOATING:
+            n->value_type = Node::floating;
+            break;
+    }
+
+    lexer->next_token();
+
+    return n;
+}
+
 Node *Parser::paren_expr() {
     if (lexer->sym != Lexer::L_PARENT) {
         std::cerr << lexer->sym << std::endl;
@@ -181,6 +214,26 @@ Node *Parser::paren_expr() {
 
     lexer->next_token();
     Node *n = expr();
+
+    if (lexer->sym != Lexer::R_PARENT)
+        error("') expected");
+
+    lexer->next_token();
+    return n;
+}
+
+Node *Parser::function_args() {
+    Node *n = new Node(Node::ARG_LIST);
+
+    if (lexer->sym != Lexer::L_PARENT) {
+        std::cerr << lexer->sym << std::endl;
+        error("'(' expected");
+    }
+
+    //while (lexer->sym == ) {
+        Node *arg = function_arg();
+        n->args.insert(std::pair<std::string, int>(arg->var_name, arg->value_type));
+    //}
 
     if (lexer->sym != Lexer::R_PARENT)
         error("') expected");
@@ -254,9 +307,8 @@ Node *Parser::statement() {
             x = new Node(Node::FUNCTION_DEFINE);
             x->var_name = lexer->str_val;
 
-            lexer->next_token(); // FIXME
             lexer->next_token();
-            lexer->next_token();
+            x->o1 = function_args();
 
             if (lexer->sym != Lexer::TYPE)
                 x->value_type = Node::null;
@@ -326,7 +378,6 @@ Node *Parser::statement() {
                     lexer->vars.push_back(var_name);
                     x->kind = Node::INIT;
                     x->o1 = sum();
-                    x->value_type = x->o1->value_type;
                 }
             }
 

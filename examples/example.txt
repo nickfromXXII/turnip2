@@ -1,34 +1,7 @@
-function main() : int
+function main(argc: int) : int
 {
-    new arr: int = array of 10;
-    repeat 10 {
-        arr[index] = index+1;
-    }
+    new a: int = argc;
 
-    repeat 10 {
-        print arr[index];
-    }
-
-    new var: float = arr[0];
-
-    print "";
-    print var;
-
-    input var;
-
-    if var is 0
-        print "var is null";
-    else
-        print "var isn't null";
-
-    print var;
-
-    new b: int = 0;
-    while b is not 5
-        input b;
-
-    arr[0+9] = 9;
-    print arr[1];
-
+    print argc;
     return 0;
 }

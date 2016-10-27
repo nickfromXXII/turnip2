@@ -16,7 +16,9 @@ class Parser {
     Node *sum();
     Node *test();
     Node *expr();
+    Node *function_arg();
     Node *paren_expr();
+    Node *function_args();
     Node *statement();
 
 public:
