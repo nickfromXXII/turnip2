@@ -8,37 +8,36 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
-
 set(SOURCE_FILES main.cpp lexer.cpp lexer.h parser.cpp parser.h node.h generator.cpp generator.h)
 add_executable(turnip2 ${SOURCE_FILES})
 
-target_link_libraries (turnip2
-
+set(LIBS
         ${PLATFORM_LIBS}
 
-        ##LLVMX86Disassembler
+        #LLVMX86Disassembler
         LLVMX86AsmParser
-        ##LLVMX86AsmPrinter
+        #LLVMX86AsmPrinter
         LLVMX86CodeGen
 
         #LLVMSelectionDAG
 
-        LLVMAsmPrinter
-        LLVMMCParser
-        LLVMX86Info
+        #LLVMAsmPrinter
+        #LLVMMCParser
+        #LLVMX86Info
 
-        ##LLVMExecutionEngine
+        #LLVMJIT
+        #LLVMExecutionEngine
 
-        LLVMCodeGen
-        LLVMScalarOpts
-        LLVMTransformUtils
+        #LLVMCodeGen
+        #LLVMScalarOpts
+        #LLVMTransformUtils
 
-        LLVMAnalysis
-        LLVMTarget
-        LLVMMC
+        #LLVMAnalysis
+        #LLVMTarget
+        #LLVMMC
 
-        LLVMCore
-        LLVMSupport
+        #LLVMCore
+        #LLVMSupport
         )
 
-#target_link_libraries(turnip2 ${llvm_libs})
+target_link_libraries (turnip2 ${LIBS})

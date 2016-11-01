@@ -504,8 +504,8 @@ void Generator::generate(Node *n) {
 
             generate(n->o2); // generate body of the function
 
-            for (auto &Arg : func->args()) // erase arguments' allocators from the table
-                table.erase(Arg.getName().str());
+            //for (auto &Arg : func->args()) // erase arguments' allocators from the table
+            //    table.erase(Arg.getName().str());
 
             break;
         }
@@ -520,7 +520,6 @@ void Generator::generate(Node *n) {
             generate(n->o1);
 
             builder->CreateRet(stack.top());
-            stack.pop();
             stack.pop();
 
             break;

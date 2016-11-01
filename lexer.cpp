@@ -33,6 +33,10 @@ void Lexer::next_token(bool ignore) {
         case EOF:
             sym = EOI;
             break;
+        case ',':
+            getc();
+            sym = COMMA;
+            break;
         case '{':
             getc();
             sym = L_BRACKET;

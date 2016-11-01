@@ -46,7 +46,7 @@ public:
         LESS, MORE, IS, EQUAL, TYPE, SEMICOLON,
         PRINT, INPUT,
         FUNCTION, RETURN,
-        EOI
+        COMMA, EOI
     };
 
     std::map<std::string, int> WORDS = {

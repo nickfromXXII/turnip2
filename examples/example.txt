@@ -1,7 +1,16 @@
+function foo()
+{
+    print "I am sample void function";
+    return 0;
+}
+
+function add(a: int, b: int) : int
+{
+    return a+b;
+}
+
 function main(argc: int) : int
 {
-    new a: int = argc;
-
     print argc;
     return 0;
 }
