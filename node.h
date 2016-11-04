@@ -28,7 +28,8 @@ public:
     int int_val = -1;
     float float_val = 0.0;
     std::string str_val = "";
-    std::map<std::string, int> args;
+    std::map<std::string, int> def_args;
+    std::vector<Node *> call_args;
 
     std::string var_name = "";
 };

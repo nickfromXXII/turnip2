@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 void Parser::error(const std::string &e) {
-    throw std::string("Parse error at line " + std::to_string(lexer->line) + ": " + e);
+    throw std::string(std::to_string(lexer->line) + " -> " + e);
 }
 
 Node *Parser::term() {
@@ -48,6 +48,36 @@ Node *Parser::term() {
         x->str_val = lexer->str_val;
 
         lexer->next_token();
+    } else if(lexer->sym == Lexer::FUNCTION_ID) {
+        x = new Node(Node::FUNCTION_CALL);
+        x->value_type = Node::integer;
+        x->var_name = lexer->str_val;
+
+        lexer->next_token();
+        if (lexer->sym != Lexer::L_PARENT)
+            error("expected '(' in arguments list");
+
+        lexer->next_token();
+        while (true) {
+            if (lexer->sym == Lexer::R_PARENT)
+                break;
+
+            x->call_args.push_back(sum());
+
+            if (lexer->sym == Lexer::R_PARENT)
+                break;
+
+            if (lexer->sym != Lexer::COMMA)
+                error("expected ',' or ')' in arguments list");
+
+            lexer->next_token();
+        }
+
+        if (lexer->sym != Lexer::R_PARENT)
+            error("expected ')' in arguments list");
+
+        lexer->next_token();
+
     } else x = paren_expr();
 
     return x;
@@ -216,14 +246,14 @@ Node *Parser::function_arg() {
 Node *Parser::paren_expr() {
     if (lexer->sym != Lexer::L_PARENT) {
         std::cerr << lexer->sym << std::endl;
-        error("'(' expected");
+        error("expected '('");
     }
 
     lexer->next_token();
     Node *n = expr();
 
     if (lexer->sym != Lexer::R_PARENT)
-        error("') expected");
+        error("expected ')'");
 
     lexer->next_token();
     return n;
@@ -234,7 +264,7 @@ Node *Parser::function_args() {
 
     if (lexer->sym != Lexer::L_PARENT) {
         std::cerr << lexer->sym << std::endl;
-        error("'(' expected");
+        error("expected '(' in arguments list");
     }
 
     while (lexer->sym != Lexer::R_PARENT) {
@@ -242,12 +272,12 @@ Node *Parser::function_args() {
         if (arg->kind == Node::EMPTY)
             break;
 
-        n->args.insert(std::pair<std::string, int>(arg->var_name, arg->value_type));
+        n->def_args.insert(std::pair<std::string, int>(arg->var_name, arg->value_type));
     }
 
     if (lexer->sym != Lexer::R_PARENT) {
         std::cerr << lexer->sym << std::endl;
-        error(") expected");
+        error("expected ')' in arguments list");
     }
 
     lexer->next_token();

@@ -1,7 +1,11 @@
-function foo()
+function show_message()
 {
     print "I am sample void function";
-    return 0;
+}
+
+function mul(a: int, b: int) : int
+{
+    return a*b;
 }
 
 function add(a: int, b: int) : int
@@ -9,8 +13,25 @@ function add(a: int, b: int) : int
     return a+b;
 }
 
-function main(argc: int) : int
+function fact(n: int) : int {
+    if (n is 1)
+        return 1;
+    return n*fact(n-1);
+}
+
+function main(argc: int)
 {
-    print argc;
-    return 0;
+    new a: int;
+    new b: int;
+    input a;
+    input b;
+
+    new sum: int = add(a, b);
+    print sum;
+
+    new n: int;
+    input n;
+    print fact(n);
+
+    show_message();
 }

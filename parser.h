@@ -22,7 +22,7 @@ class Parser {
     Node *statement();
 
 public:
-    Parser(Lexer *l) { lexer = l; }
+    Parser(Lexer *l) : lexer(l) {}
     Node *parse();
 
 };
