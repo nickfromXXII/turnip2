@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
         generateObject(generator->module, output);
     }
     catch (const std::string &err) {
-        std::cerr << err << std::endl;
+        std::cerr << "In file " << argv[1] << ":" << err << std::endl;
         return 1;
     }
 

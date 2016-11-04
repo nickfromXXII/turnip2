@@ -1,34 +1,37 @@
-function main() : int
+function show_message()
 {
-    new arr: int = array of 10;
-    repeat 10 {
-        arr[index] = index+1;
-    }
+    print "I am sample void function";
+}
 
-    repeat 10 {
-        print arr[index];
-    }
+function mul(a: int, b: int) : int
+{
+    return a*b;
+}
 
-    new var: float = arr[0];
+function add(a: int, b: int) : int
+{
+    return a+b;
+}
 
-    print "";
-    print var;
+function fact(n: int) : int {
+    if (n is 1)
+        return 1;
+    return n*fact(n-1);
+}
 
-    input var;
+function main(argc: int)
+{
+    new a: int;
+    new b: int;
+    input a;
+    input b;
 
-    if var is 0
-        print "var is null";
-    else
-        print "var isn't null";
+    new sum: int = add(a, b);
+    print sum;
 
-    print var;
+    new n: int;
+    input n;
+    print fact(n);
 
-    new b: int = 0;
-    while b is not 5
-        input b;
-
-    arr[0+9] = 9;
-    print arr[1];
-
-    return 0;
+    show_message();
 }

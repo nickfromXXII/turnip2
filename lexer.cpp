@@ -13,7 +13,7 @@ void Lexer::load(std::vector<char> c) {
 }
 
 void Lexer::error(const std::string &e) {
-    throw std::string("Analyze error at line " + std::to_string(line) + ": " + e);
+    throw std::string(std::to_string(line) + " -> " + e);
 }
 
 void Lexer::getc() {
@@ -24,7 +24,7 @@ void Lexer::getc() {
 void Lexer::next_token(bool ignore) {
     again:
     switch (ch) {
-        case '\n': // FIXME
+        case '\n':
         case '\r':
             line++;
         case ' ':
@@ -32,6 +32,10 @@ void Lexer::next_token(bool ignore) {
             goto again;
         case EOF:
             sym = EOI;
+            break;
+        case ',':
+            getc();
+            sym = COMMA;
             break;
         case '{':
             getc();
@@ -149,11 +153,17 @@ void Lexer::next_token(bool ignore) {
                             str_val = str;
                     }
 
+                    for (auto &&item : functions) {
+                        if (str == item)
+                            sym = FUNCTION_ID;
+                        str_val = str;
+                    }
+
                     if (sym == -1) {
                         if (ignore) {
                             sym = ID;
                             str_val = str;
-                        }
+                        } else error("'" + str + "' was not declared in this scope");
                     }
                 }
             }

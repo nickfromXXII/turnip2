@@ -38,6 +38,8 @@ class Generator {
     bool io_using = false;
     void use_io();
 
+    void error(const std::string &e);
+
 public:
     Generator() {
         module = new Module("trnp2", context);

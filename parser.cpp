@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 void Parser::error(const std::string &e) {
-    throw std::string("Parse error at line " + std::to_string(lexer->line) + ": " + e);
+    throw std::string(std::to_string(lexer->line) + " -> " + e);
 }
 
 Node *Parser::term() {
@@ -48,6 +48,36 @@ Node *Parser::term() {
         x->str_val = lexer->str_val;
 
         lexer->next_token();
+    } else if(lexer->sym == Lexer::FUNCTION_ID) {
+        x = new Node(Node::FUNCTION_CALL);
+        x->value_type = Node::integer;
+        x->var_name = lexer->str_val;
+
+        lexer->next_token();
+        if (lexer->sym != Lexer::L_PARENT)
+            error("expected '(' in arguments list");
+
+        lexer->next_token();
+        while (true) {
+            if (lexer->sym == Lexer::R_PARENT)
+                break;
+
+            x->call_args.push_back(sum());
+
+            if (lexer->sym == Lexer::R_PARENT)
+                break;
+
+            if (lexer->sym != Lexer::COMMA)
+                error("expected ',' or ')' in arguments list");
+
+            lexer->next_token();
+        }
+
+        if (lexer->sym != Lexer::R_PARENT)
+            error("expected ')' in arguments list");
+
+        lexer->next_token();
+
     } else x = paren_expr();
 
     return x;
@@ -173,17 +203,82 @@ Node *Parser::expr() {
     return x;
 }
 
+Node *Parser::function_arg() {
+    Node *n;
+
+    lexer->next_token(true);
+
+    if (lexer->sym == Lexer::R_PARENT)
+        return new Node(Node::EMPTY);
+
+    std::string var_name = lexer->str_val;
+    lexer->vars.push_back(var_name);
+
+    n = new Node(Node::ARG);
+    n->var_name = var_name;
+
+    lexer->next_token();
+    if (lexer->sym != Lexer::TYPE) {
+        std::cout << lexer->sym << std::endl;
+        error("expected type keyword");
+    }
+
+    lexer->next_token();
+    if (lexer->sym != Lexer::INTEGER && lexer->sym != Lexer::FLOATING) {
+        std::cout << lexer->sym << std::endl;
+        error("expected variable type");
+    }
+
+    switch (lexer->sym) {
+        case Lexer::INTEGER:
+            n->value_type = Node::integer;
+            break;
+        case Lexer::FLOATING:
+            n->value_type = Node::floating;
+            break;
+    }
+
+    lexer->next_token();
+
+    return n;
+}
+
 Node *Parser::paren_expr() {
     if (lexer->sym != Lexer::L_PARENT) {
         std::cerr << lexer->sym << std::endl;
-        error("'(' expected");
+        error("expected '('");
     }
 
     lexer->next_token();
     Node *n = expr();
 
     if (lexer->sym != Lexer::R_PARENT)
-        error("') expected");
+        error("expected ')'");
+
+    lexer->next_token();
+    return n;
+}
+
+Node *Parser::function_args() {
+    Node *n = new Node(Node::ARG_LIST);
+
+    if (lexer->sym != Lexer::L_PARENT) {
+        std::cerr << lexer->sym << std::endl;
+        error("expected '(' in arguments list");
+    }
+
+    while (lexer->sym != Lexer::R_PARENT) {
+        Node *arg = function_arg();
+        if (arg->kind == Node::EMPTY)
+            break;
+
+        n->def_args.insert(std::pair<std::string, int>(arg->var_name, arg->value_type));
+    }
+
+    if (lexer->sym != Lexer::R_PARENT) {
+        std::cerr << lexer->sym << std::endl;
+        error("expected ')' in arguments list");
+    }
 
     lexer->next_token();
     return n;
@@ -248,15 +343,13 @@ Node *Parser::statement() {
         }
         case Lexer::FUNCTION: {
             lexer->next_token(true);
-
             lexer->functions.push_back(lexer->str_val);
 
             x = new Node(Node::FUNCTION_DEFINE);
             x->var_name = lexer->str_val;
 
-            lexer->next_token(); // FIXME
             lexer->next_token();
-            lexer->next_token();
+            x->o1 = function_args();
 
             if (lexer->sym != Lexer::TYPE)
                 x->value_type = Node::null;
@@ -326,7 +419,6 @@ Node *Parser::statement() {
                     lexer->vars.push_back(var_name);
                     x->kind = Node::INIT;
                     x->o1 = sum();
-                    x->value_type = x->o1->value_type;
                 }
             }
 
@@ -411,13 +503,21 @@ Node *Parser::statement() {
 }
 
 Node *Parser::parse() {
+    Node *t, *x;
+
+    x = new Node(Node::EMPTY);
     lexer->next_token();
 
-    Node *n = new Node(Node::PROG);
-    n->o1 = statement(); // FIXME
+    while (lexer->sym != Lexer::EOI) {
+        t = x;
+        x = new Node(Node::SEQ);
+
+        x->o1 = t;
+        x->o2 = statement();
+    }
 
     if (lexer->sym != Lexer::EOI)
         error("Invalid statement syntax");
 
-    return n;
+    return x;
 }
