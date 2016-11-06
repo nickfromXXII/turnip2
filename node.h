@@ -19,14 +19,14 @@ public:
         EMPTY, SEQ, EXPR, PROG, PRINT, INPUT, FUNCTION_DEFINE, FUNCTION_CALL, RETURN
     };
 
-    int kind;
+    int kind = -1;
     struct Node *o1, *o2, *o3;
 
     enum val_type { null, integer, floating, string };
     int value_type = val_type::null;
 
     int int_val = -1;
-    float float_val = 0.0;
+    double float_val = 0.0;
     std::string str_val = "";
     std::map<std::string, int> def_args;
     std::vector<Node *> call_args;

@@ -4,7 +4,8 @@
 
 #include "lexer.h"
 #include <iostream>
-#include <stdlib.h>
+#include <string>
+#include <cstring>
 
 void Lexer::load(std::vector<char> c) {
     ch = ' ';
@@ -100,6 +101,15 @@ void Lexer::next_token(bool ignore) {
             sym = TYPE;
             break;
         }
+        case '#': {
+            do getc();
+            while (ch != EOF && ch != '\n' && ch != '\r');
+
+            if (ch != EOF)
+                next_token();
+
+            break;
+        }
         case '"': {
             std::string str = "";
             getc();
@@ -117,15 +127,21 @@ void Lexer::next_token(bool ignore) {
         }
         default: {
             if (isdigit(ch)) {
-                int i = 0;
+                std::string buf;
 
-                while (isdigit(ch)) {
-                    i = i * 10 + (ch - '0');
+                while (isdigit(ch) || ch == '.') {
+                    buf += ch;
                     getc();
                 }
 
-                sym = NUM;
-                num_val = i;
+                if (strchr(buf.c_str(), '.')) {
+                    sym = NUM_F;
+                    float_val = std::stod(buf);
+                }
+                else {
+                    sym = NUM_I;
+                    int_val = std::stoi(buf);
+                }
             } else if (isalpha(ch)) {
                 std::string str = "";
 
@@ -148,7 +164,7 @@ void Lexer::next_token(bool ignore) {
                     }
 
                     for (auto &&item : vars) {
-                        if (str == item)
+                        if (str == item.first)
                             sym = ID;
                             str_val = str;
                     }

@@ -6,7 +6,6 @@
 
 #include <iostream>
 #include <algorithm>
-#include <stdlib.h>
 
 void Parser::error(const std::string &e) {
     throw std::string(std::to_string(lexer->line) + " -> " + e);
@@ -31,14 +30,21 @@ Node *Parser::term() {
             }
 
             lexer->next_token();
-            x->value_type = Node::integer;
+            x->value_type = lexer->vars.at(x->var_name);
         }
 
-    } else if (lexer->sym == Lexer::NUM) {
+    } else if (lexer->sym == Lexer::NUM_I) {
         x = new Node(Node::CONST);
         x->value_type = Node::integer;
 
-        x->int_val = lexer->num_val;
+        x->int_val = lexer->int_val;
+
+        lexer->next_token();
+    } else if (lexer->sym == Lexer::NUM_F) {
+        x = new Node(Node::CONST);
+        x->value_type = Node::floating;
+
+        x->float_val = lexer->float_val;
 
         lexer->next_token();
     } else if (lexer->sym == Lexer::STR) {
@@ -212,7 +218,7 @@ Node *Parser::function_arg() {
         return new Node(Node::EMPTY);
 
     std::string var_name = lexer->str_val;
-    lexer->vars.push_back(var_name);
+    int var_type = Lexer::null;
 
     n = new Node(Node::ARG);
     n->var_name = var_name;
@@ -231,13 +237,16 @@ Node *Parser::function_arg() {
 
     switch (lexer->sym) {
         case Lexer::INTEGER:
+            var_type = Lexer::integer;
             n->value_type = Node::integer;
             break;
         case Lexer::FLOATING:
+            var_type = Lexer::floating;
             n->value_type = Node::floating;
             break;
     }
 
+    lexer->vars.insert(std::pair<std::string, int>(var_name, var_type));
     lexer->next_token();
 
     return n;
@@ -375,12 +384,12 @@ Node *Parser::statement() {
         }
         case Lexer::NEW: {
             lexer->next_token(true);
-            lexer->vars.push_back(lexer->str_val);
 
             x = new Node(Node::NEW);
 
             std::string var_name = lexer->str_val;
             x->var_name = var_name;
+            int var_type = Lexer::null;
 
             lexer->next_token();
             if (lexer->sym != Lexer::TYPE)
@@ -392,9 +401,11 @@ Node *Parser::statement() {
 
             switch (lexer->sym) {
                 case Lexer::INTEGER:
+                    var_type = Lexer::integer;
                     x->value_type = Node::integer;
                     break;
                 case Lexer::FLOATING:
+                    var_type = Lexer::floating;
                     x->value_type = Node::floating;
                     break;
             }
@@ -416,17 +427,17 @@ Node *Parser::statement() {
 
                     x->o1 = arr;
                 } else {
-                    lexer->vars.push_back(var_name);
                     x->kind = Node::INIT;
                     x->o1 = sum();
                 }
             }
+            lexer->vars.insert(std::pair<std::string, int>(var_name, var_type));
 
             break;
         }
         case Lexer::DELETE: {
             lexer->next_token();
-            lexer->vars.erase(std::remove(lexer->vars.begin(), lexer->vars.end(), lexer->str_val), lexer->vars.end());
+            lexer->vars.erase(lexer->str_val);
 
             x = new Node(Node::DELETE);
             x->var_name = lexer->str_val;
