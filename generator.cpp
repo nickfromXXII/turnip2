@@ -481,24 +481,35 @@ void Generator::generate(Node *n) {
                 stack.pop(); // erase it from the stack
 
                 Value *arr_ptr = table.at(n->var_name); // get array's pointer
-                builder->CreateStore(
-                        val,
-                        builder->CreateGEP( // get element's pointer
-                                arr_ptr,
-                                {
-                                        ConstantInt::get(Type::getInt32Ty(context), 0),
-                                        elements_count_val
-                                },
-                                n->var_name
-                        )
-                ); // update the value
-            } else {
-                if (table.at(n->var_name)->getType() != val->getType()) {
-                    if (table.at(n->var_name)->getType()->isIntegerTy(32) && val->getType()->isDoubleTy()) {
+                Value *el_ptr = builder->CreateGEP( // get element's pointer
+                        arr_ptr,
+                        {
+                                ConstantInt::get(Type::getInt32Ty(context), 0),
+                                elements_count_val
+                        },
+                        n->var_name
+                );
+
+                el_ptr->getType()->dump();
+                if (el_ptr->getType() != val->getType()) {
+                    if (el_ptr->getType() == Type::getInt32PtrTy(context) && val->getType()->isDoubleTy()) {
                         Value *buf = val;
                         val = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
                     }
-                    else if (table.at(n->var_name)->getType()->isDoubleTy() && val->getType()->isIntegerTy(32)) {
+                    else if (el_ptr->getType() == Type::getDoublePtrTy(context) && val->getType()->isIntegerTy(32)) {
+                        Value *buf = val;
+                        val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
+                    }
+                }
+                builder->CreateStore(val, el_ptr); // update value of variable
+
+            } else {
+                if (table.at(n->var_name)->getType() != val->getType()) {
+                    if (table.at(n->var_name)->getType() == Type::getInt32PtrTy(context) && val->getType()->isDoubleTy()) {
+                        Value *buf = val;
+                        val = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
+                    }
+                    else if (table.at(n->var_name)->getType() == Type::getDoublePtrTy(context) && val->getType()->isIntegerTy(32)) {
                         Value *buf = val;
                         val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
                     }
