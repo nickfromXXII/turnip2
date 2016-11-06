@@ -1,37 +1,49 @@
-function show_message()
+function show_message()  # simple procedure which prints a message
 {
     print "I am sample void function";
 }
 
-function mul(a: int, b: int) : int
+function mul(a: int, b: int) : int  # simple function which returns a product of two integers
 {
     return a*b;
 }
 
-function add(a: int, b: int) : int
+function iadd(a: int, b: int) : int  # simple function which returns a sum of two integers
 {
     return a+b;
 }
 
-function fact(n: int) : int {
+function fadd(a: float, b: float) : float  # simple function which returns a sum of two doubles
+{
+    return a+b;
+}
+
+function fact(n: int) : int  # simple function which uses recursion to find a factorial of given integer
+{
     if (n is 1)
         return 1;
     return n*fact(n-1);
 }
 
-function main(argc: int)
+function main(argc: int)  # entry point
 {
-    new a: int;
-    new b: int;
-    input a;
+    new a: int;  # declare an integer variable
+    new b: int = 2;  # declare and initialize by number an integer variable
+    new f1: float = 3.15;  # declare a float variable
+    new f2: float = 4.85;  # declare and initialize by number a float variable
+    new f3: float = fadd(f1, f2);  # declare and initialize by function call a float variable
+
+    print f3;  # print the value of f3 variable to the stdout
+
+    input a;  # get the new value from the keyboard
     input b;
 
-    new sum: int = add(a, b);
-    print sum;
+    new sum: int = iadd(a, b); # declare and initialize by function call an integer variable
+    print sum; # print the value of sum variable to the stdout
 
     new n: int;
     input n;
     print fact(n);
 
-    show_message();
+    show_message();  # call the procedure
 }

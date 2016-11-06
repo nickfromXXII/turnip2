@@ -11,9 +11,15 @@
 void Generator::use_io() {
     io_using = true;
 
+    table.insert(std::pair<std::string, Value *>("int_out_format", builder->CreateGlobalStringPtr("%i\n", "int_out_format")));
+    table.insert(std::pair<std::string, Value *>("float_out_format", builder->CreateGlobalStringPtr("%f\n", "float_out_format")));
+    table.insert(std::pair<std::string, Value *>("str_out_format", builder->CreateGlobalStringPtr("%s\n", "str_out_format")));
+
     printfArgs.push_back(Type::getInt8PtrTy(context)); // create the prototype of printf function
     printfType = FunctionType::get(Type::getInt32Ty(context), printfArgs, true);
     printf = module->getOrInsertFunction("printf", printfType);
+
+    table.insert(std::pair<std::string, Value *>("float_in_format", builder->CreateGlobalStringPtr("%d", "float_in_format")));
 
     scanfArgs.push_back(Type::getInt8PtrTy(context)); // create the prototype of scanf function
     scanfType = FunctionType::get(Type::getInt32Ty(context), scanfArgs, true);
@@ -58,7 +64,7 @@ void Generator::generate(Node *n) {
                                             n->var_name,
                                             builder->CreateAlloca(
                                                     ArrayType::get(
-                                                            Type::getFloatTy(context),
+                                                            Type::getDoubleTy(context),
                                                             static_cast<uint64_t>(elements_count)
                                                     ),
                                                     nullptr,
@@ -88,7 +94,7 @@ void Generator::generate(Node *n) {
                                 std::pair<std::string, Value *>(
                                         n->var_name,
                                         builder->CreateAlloca(
-                                                Type::getFloatTy(context),
+                                                Type::getDoubleTy(context),
                                                 nullptr,
                                                 n->var_name + "_ptr")
                                 )
@@ -112,9 +118,8 @@ void Generator::generate(Node *n) {
                     break;
                 case Node::floating: // float variable
                     table.insert(
-                            std::pair<std::string, Value *>(n->var_name,
-                                                            builder->CreateAlloca(
-                                                                    Type::getFloatTy(context),
+                            std::pair<std::string, Value *>(n->var_name,                                                            builder->CreateAlloca(
+                                                                    Type::getDoubleTy(context),
                                                                     nullptr,
                                                                     n->var_name + "_ptr")
                             )
@@ -125,15 +130,31 @@ void Generator::generate(Node *n) {
             generate(n->o1); // generate initial value
             Value *val = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
-            builder->CreateStore(val, table.at(n->var_name)); // set it
 
+            if (table.at(n->var_name)->getType() != val->getType()) {
+                if (table.at(n->var_name)->getType()->isIntegerTy(32) && val->getType()->isDoubleTy()) {
+                    Value *buf = val;
+                    val = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
+                }
+                else if (table.at(n->var_name)->getType()->isDoubleTy() && val->getType()->isIntegerTy(32)) {
+                    Value *buf = val;
+                    val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
+                }
+            }
+            builder->CreateStore(val, table.at(n->var_name));
             break;
         }
         case Node::DELETE:
             table.erase(n->var_name); // erase pointer from the table
             break;
         case Node::VAR: { // push value of the variable to the stack
-            stack.push(builder->CreateLoad(Type::getInt32Ty(context), table.at(n->var_name), n->var_name));
+            Type *type;
+            if(table.at(n->var_name)->getType() == Type::getInt32PtrTy(context))
+                type = Type::getInt32Ty(context);
+            else if(table.at(n->var_name)->getType() == Type::getDoublePtrTy(context))
+                type = Type::getDoubleTy(context);
+
+            stack.push(builder->CreateLoad(type, table.at(n->var_name), n->var_name));
             break;
         }
         case Node::FUNCTION_CALL: { // generate function's call
@@ -190,9 +211,10 @@ void Generator::generate(Node *n) {
                 case Node::string: // str constant
                     stack.push(builder->CreateGlobalStringPtr(n->str_val));
                     break;
-                case Node::integer: // integer constant
+                case Node::integer: { // integer constant
                     stack.push(ConstantInt::get(context, APInt(32, static_cast<uint64_t>(n->int_val))));
                     break;
+                }
                 case Node::floating: // float constant
                     stack.push(ConstantFP::get(context, APFloat(n->float_val)));
                     break;
@@ -208,7 +230,20 @@ void Generator::generate(Node *n) {
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
 
-            stack.push(builder->CreateAdd(left, right)); // push generated addition to the stack
+            if (left->getType()->isIntegerTy()) { // left operand is int
+                if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
+                    Value *buf = right;
+                    right = builder->CreateFPToUI(buf, Type::getInt32Ty(context));
+                }
+                stack.push(builder->CreateAdd(left, right)); // push generated addition to the stack
+            }
+            else if (left->getType()->isDoubleTy()) { // left operand is double
+                if (right->getType()->isIntegerTy()) { // if right operand is int, we have to convert it to double
+                    Value *buf = right;
+                    right = builder->CreateUIToFP(buf, Type::getDoubleTy(context));
+                }
+                stack.push(builder->CreateFAdd(left, right)); // push generated addition to the stack
+            }
             break;
         }
         case Node::SUB: { // generate subtraction
@@ -220,7 +255,20 @@ void Generator::generate(Node *n) {
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
 
-            stack.push(builder->CreateSub(left, right)); // push generated subtraction to the stack
+            if (left->getType()->isIntegerTy()) { // left operand is int
+                if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
+                    Value *buf = right;
+                    right = builder->CreateFPToUI(buf, Type::getInt32Ty(context));
+                }
+                stack.push(builder->CreateSub(left, right)); // push generated subtraction to the stack
+            }
+            else if (left->getType()->isDoubleTy()) { // left operand is double
+                if (right->getType()->isIntegerTy()) { // if right operand is int, we have to convert it to double
+                    Value *buf = right;
+                    right = builder->CreateUIToFP(buf, Type::getDoubleTy(context));
+                }
+                stack.push(builder->CreateFSub(left, right)); // push generated subtraction to the stack
+            }
             break;
         }
         case Node::MUL: { // generate multiplication
@@ -232,7 +280,20 @@ void Generator::generate(Node *n) {
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
 
-            stack.push(builder->CreateMul(left, right)); // push generated multiplication to the stack
+            if (left->getType()->isIntegerTy()) { // left operand is int
+                if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
+                    Value *buf = right;
+                    right = builder->CreateFPToUI(buf, Type::getInt32Ty(context));
+                }
+                stack.push(builder->CreateMul(left, right)); // push generated multiplication to the stack
+            }
+            else if (left->getType()->isDoubleTy()) { // left operand is double
+                if (right->getType()->isIntegerTy()) { // if right operand is int, we have to convert it to double
+                    Value *buf = right;
+                    right = builder->CreateUIToFP(buf, Type::getDoubleTy(context));
+                }
+                stack.push(builder->CreateFMul(left, right)); // push generated multiplication to the stack
+            }
             break;
         }
         case Node::DIV: { // generate division
@@ -244,10 +305,23 @@ void Generator::generate(Node *n) {
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
 
-            stack.push(builder->CreateSDiv(left, right)); // push generated division to the stack
+            if (left->getType()->isIntegerTy()) { // left operand is int
+                if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
+                    Value *buf = right;
+                    right = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
+                }
+                stack.push(builder->CreateSDiv(left, right)); // push generated division to the stack
+            }
+            else if (left->getType()->isDoubleTy()) { // left operand is double
+                if (right->getType()->isIntegerTy()) { // if right operand is int, we have to convert it to double
+                    Value *buf = right;
+                    right = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
+                }
+                stack.push(builder->CreateFDiv(left, right)); // push generated division to the stack
+            }
             break;
         }
-        case Node::LESS_TEST: { // <
+        case Node::LESS_TEST: { // < FIXME floating point test
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -256,10 +330,23 @@ void Generator::generate(Node *n) {
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
 
-            stack.push(builder->CreateICmpSLT(left, right)); // push generated test to the stack
+            if (left->getType()->isIntegerTy()) { // left operand is int
+                if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
+                    Value *buf = right;
+                    right = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
+                }
+                stack.push(builder->CreateICmpSLT(left, right)); // push generated test to the stack
+            }
+            else if (left->getType()->isDoubleTy()) { // left operand is double
+                if (right->getType()->isIntegerTy()) { // if right operand is int, we have to convert it to double
+                    Value *buf = right;
+                    right = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
+                }
+                //stack.push(builder->CreateFCmpULT(left, right)); // push generated test to the stack
+            }
             break;
         }
-        case Node::LESS_IS_TEST: { // <=
+        case Node::LESS_IS_TEST: { // <= FIXME floating point test
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -268,10 +355,23 @@ void Generator::generate(Node *n) {
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
 
-            stack.push(builder->CreateICmpSLE(left, right)); // push generated test to the stack
+            if (left->getType()->isIntegerTy()) { // left operand is int
+                if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
+                    Value *buf = right;
+                    right = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
+                }
+                stack.push(builder->CreateICmpSLE(left, right)); // push generated test to the stack
+            }
+            else if (left->getType()->isDoubleTy()) { // left operand is double
+                if (right->getType()->isIntegerTy()) { // if right operand is int, we have to convert it to double
+                    Value *buf = right;
+                    right = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
+                }
+                //stack.push(builder->CreateFCmpULE(left, right)); // push generated test to the stack
+            }
             break;
         }
-        case Node::MORE_TEST: { // >
+        case Node::MORE_TEST: { // > FIXME floating point test
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -280,10 +380,23 @@ void Generator::generate(Node *n) {
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
 
-            stack.push(builder->CreateICmpSGT(left, right)); // push generated test to the stack
+            if (left->getType()->isIntegerTy()) { // left operand is int
+                if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
+                    Value *buf = right;
+                    right = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
+                }
+                stack.push(builder->CreateICmpSGT(left, right)); // push generated test to the stack
+            }
+            else if (left->getType()->isDoubleTy()) { // left operand is double
+                if (right->getType()->isIntegerTy()) { // if right operand is int, we have to convert it to double
+                    Value *buf = right;
+                    right = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
+                }
+                //stack.push(builder->CreateFCmpUGT(left, right)); // push generated test to the stack
+            }
             break;
         }
-        case Node::MORE_IS_TEST: { // >=
+        case Node::MORE_IS_TEST: { // >= FIXME floating point test
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -292,9 +405,22 @@ void Generator::generate(Node *n) {
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
 
-            stack.push(builder->CreateICmpSGE(left, right)); // push generated test to the stack
+            if (left->getType()->isIntegerTy()) { // left operand is int
+                if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
+                    Value *buf = right;
+                    right = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
+                }
+                stack.push(builder->CreateICmpSGE(left, right)); // push generated test to the stack
+            }
+            else if (left->getType()->isDoubleTy()) { // left operand is double
+                if (right->getType()->isIntegerTy()) { // if right operand is int, we have to convert it to double
+                    Value *buf = right;
+                    right = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
+                }
+                //stack.push(builder->CreateFCmpUGE(left, right)); // push generated test to the stack
+            }
             break;        }
-        case Node::IS_TEST: { // is
+        case Node::IS_TEST: { // is FIXME floating point test
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -303,10 +429,23 @@ void Generator::generate(Node *n) {
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
 
-            stack.push(builder->CreateICmpEQ(left, right)); // push generated test to the stack
+            if (left->getType()->isIntegerTy()) { // left operand is int
+                if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
+                    Value *buf = right;
+                    right = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
+                }
+                stack.push(builder->CreateICmpEQ(left, right)); // push generated test to the stack
+            }
+            else if (left->getType()->isDoubleTy()) { // left operand is double
+                if (right->getType()->isIntegerTy()) { // if right operand is int, we have to convert it to double
+                    Value *buf = right;
+                    right = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
+                }
+                //stack.push(builder->CreateFCmpUEQ(left, right)); // push generated test to the stack
+            }
             break;
         }
-        case Node::IS_NOT_TEST: { // is not
+        case Node::IS_NOT_TEST: { // is not FIXME floating point test
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -315,7 +454,20 @@ void Generator::generate(Node *n) {
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
 
-            stack.push(builder->CreateICmpNE(left, right)); // push generated test to the stack
+            if (left->getType()->isIntegerTy()) { // left operand is int
+                if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
+                    Value *buf = right;
+                    right = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
+                }
+                stack.push(builder->CreateICmpNE(left, right)); // push generated test to the stack
+            }
+            else if (left->getType()->isDoubleTy()) { // left operand is double
+                if (right->getType()->isIntegerTy()) { // if right operand is int, we have to convert it to double
+                    Value *buf = right;
+                    right = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
+                }
+                //stack.push(builder->CreateFCmpUNE(left, right)); // push generated test to the stack
+            }
             break;
         }
         case Node::SET: { // generate an update variable's or array element's value
@@ -340,8 +492,19 @@ void Generator::generate(Node *n) {
                                 n->var_name
                         )
                 ); // update the value
-            } else builder->CreateStore(val, table.at(n->var_name)); // update value of variable
-
+            } else {
+                if (table.at(n->var_name)->getType() != val->getType()) {
+                    if (table.at(n->var_name)->getType()->isIntegerTy(32) && val->getType()->isDoubleTy()) {
+                        Value *buf = val;
+                        val = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
+                    }
+                    else if (table.at(n->var_name)->getType()->isDoubleTy() && val->getType()->isIntegerTy(32)) {
+                        Value *buf = val;
+                        val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
+                    }
+                }
+                builder->CreateStore(val, table.at(n->var_name)); // update value of variable
+            }
             break;
         }
         case Node::IF: { // generate 'if' condition without 'else' branch
@@ -484,7 +647,7 @@ void Generator::generate(Node *n) {
                         args_types.push_back(Type::getInt32Ty(context));
                         break;
                     case Node::floating:
-                        args_types.push_back(Type::getFloatTy(context));
+                        args_types.push_back(Type::getDoubleTy(context));
                         break;
                 }
                 args_names.push_back(iterator.first);
@@ -495,7 +658,7 @@ void Generator::generate(Node *n) {
                     type = FunctionType::get(Type::getInt32Ty(context), args_types, false);
                     break;
                 case Node::floating:
-                    type = FunctionType::get(Type::getFloatTy(context), args_types, false);
+                    type = FunctionType::get(Type::getDoubleTy(context), args_types, false);
                     break;
                 default:
                     type = FunctionType::get(Type::getVoidTy(context), args_types, false);
@@ -529,7 +692,7 @@ void Generator::generate(Node *n) {
                         builder->CreateRet(ConstantInt::get(Type::getInt32Ty(context), 0));
                         break;
                     case Node::floating:
-                        builder->CreateRet(ConstantFP::get(Type::getFloatTy(context), 0.0));
+                        builder->CreateRet(ConstantFP::get(Type::getDoubleTy(context), 0.0));
                         break;
                     default:
                         builder->CreateRetVoid();
@@ -566,11 +729,11 @@ void Generator::generate(Node *n) {
 
             Value *format;
             if (stack.top()->getType()->isIntegerTy(32)) // print integer
-                format = builder->CreateGlobalStringPtr("%i\n");
-            else if (stack.top()->getType()->isFloatTy()) // print float
-                format = builder->CreateGlobalStringPtr("%f\n");
+                format = table.at("int_out_format");
+            else if (stack.top()->getType()->isDoubleTy()) // print float
+                format = table.at("float_out_format");
             else // print string
-                format = builder->CreateGlobalStringPtr("%s\n");
+                format = table.at("str_out_format");
 
             args.push_back(format);
             args.push_back(stack.top()); // get the value from the stack
@@ -584,7 +747,7 @@ void Generator::generate(Node *n) {
                 use_io();
 
             std::vector<Value*> args;
-            Value *format = builder->CreateGlobalStringPtr("%d");
+            Value *format = table.at("float_in_format");
 
             args.push_back(format);
             args.push_back(table.at(n->var_name));

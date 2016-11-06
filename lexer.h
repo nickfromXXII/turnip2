@@ -26,15 +26,18 @@ public:
     int sym;
     int line = 1;
 
-    int num_val;
+    int int_val;
+    double float_val;
     std::string str_val;
 
-    std::vector<std::string> vars;
+    enum val_type { null, integer, floating, string };
+
+    std::map<std::string, int> vars;
     std::vector<std::string> arrays;
     std::vector<std::string> functions;
 
     enum token_types {
-        NUM, STR, ID, FUNCTION_ID,
+        NUM_I, NUM_F, STR, ID, FUNCTION_ID,
         ARRAY, OF, INTEGER, FLOATING,
         IF, NOT, ELSE,
         WHILE, DO, REPEAT,
