@@ -38,7 +38,7 @@ public:
 
     enum token_types {
         NUM_I, NUM_F, STR, ID, FUNCTION_ID,
-        ARRAY, OF, INTEGER, FLOATING,
+        ARRAY, OF, INTEGER, FLOATING, STRING,
         IF, NOT, ELSE,
         WHILE, DO, REPEAT,
         NEW, DELETE,
@@ -57,6 +57,7 @@ public:
             {"of", OF},
             {"int", INTEGER},
             {"float", FLOATING},
+            {"string", STRING},
             {"if", IF},
             {"else", ELSE},
             {"while", WHILE},

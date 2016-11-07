@@ -20,6 +20,7 @@ void Generator::use_io() {
     printf = module->getOrInsertFunction("printf", printfType);
 
     table.insert(std::pair<std::string, Value *>("float_in_format", builder->CreateGlobalStringPtr("%d", "float_in_format")));
+    table.insert(std::pair<std::string, Value *>("str_in_format", builder->CreateGlobalStringPtr("%255s", "str_in_format")));
 
     scanfArgs.push_back(Type::getInt8PtrTy(context)); // create the prototype of scanf function
     scanfType = FunctionType::get(Type::getInt32Ty(context), scanfArgs, true);
@@ -73,6 +74,21 @@ void Generator::generate(Node *n) {
                                     )
                             );
                             break;
+                        case Node::string: // string array
+                            table.insert(
+                                    std::pair<std::string, Value *>(
+                                            n->var_name,
+                                            builder->CreateAlloca(
+                                                    ArrayType::get(
+                                                            ArrayType::get(Type::getInt8Ty(context), 256),
+                                                            static_cast<uint64_t>(elements_count)
+                                                    ),
+                                                    nullptr,
+                                                    n->var_name + "_ptr"
+                                            )
+                                    )
+                            );
+                            break;
                     }
                 }
             }
@@ -100,6 +116,17 @@ void Generator::generate(Node *n) {
                                 )
                         );
                         break;
+                    case Node::string: // string variable
+                        table.insert(
+                                std::pair<std::string, Value *>(
+                                        n->var_name,
+                                        builder->CreateAlloca(
+                                                ArrayType::get(Type::getInt8Ty(context), 256),
+                                                nullptr,
+                                                n->var_name + "_ptr")
+                                )
+                        );
+                        break;
                 }
             }
             break;
@@ -122,6 +149,15 @@ void Generator::generate(Node *n) {
                                                                     Type::getDoubleTy(context),
                                                                     nullptr,
                                                                     n->var_name + "_ptr")
+                            )
+                    );
+                    break;
+                case Node::string: // string variable
+                    table.insert(
+                            std::pair<std::string, Value *>(n->var_name,                                                            builder->CreateAlloca(
+                                    Type::getInt8PtrTy(context),
+                                    nullptr,
+                                    n->var_name + "_ptr")
                             )
                     );
                     break;
@@ -153,6 +189,18 @@ void Generator::generate(Node *n) {
                 type = Type::getInt32Ty(context);
             else if(table.at(n->var_name)->getType() == Type::getDoublePtrTy(context))
                 type = Type::getDoubleTy(context);
+            else if (table.at(n->var_name)->getType() == PointerType::get(ArrayType::get(Type::getInt8Ty(context), 256), 0)) {
+                stack.push(
+                        builder->CreateGEP(
+                                table.at(n->var_name), {
+                                        ConstantInt::get(Type::getInt32Ty(context), 0),
+                                        ConstantInt::get(Type::getInt32Ty(context), 0)
+                                },
+                                n->var_name
+                        )
+                );
+                break;
+            }
 
             stack.push(builder->CreateLoad(type, table.at(n->var_name), n->var_name));
             break;
@@ -190,7 +238,25 @@ void Generator::generate(Node *n) {
             stack.pop(); // erase it from the stack
 
             Value *arr_ptr = table.at(n->var_name); // get array's pointer
-            stack.push(
+            ArrayType* arr_type = cast<ArrayType>(cast<PointerType>(arr_ptr->getType())->getElementType());
+            if (arr_type->getElementType() == ArrayType::get(Type::getInt8Ty(context), 256)) { // array of strings
+                stack.push(
+                        builder->CreateGEP(
+                                builder->CreateGEP(
+                                        arr_ptr,
+                                        {
+                                                ConstantInt::get(Type::getInt32Ty(context), 0),
+                                                elements_count_val
+                                        },
+                                        n->var_name
+                                ), {
+                                        ConstantInt::get(Type::getInt32Ty(context), 0),
+                                        ConstantInt::get(Type::getInt32Ty(context), 0)
+                                },
+                                n->var_name
+                        )
+                );
+            } else stack.push(
                     builder->CreateLoad(
                             builder->CreateGEP( // get element's pointer
                                     arr_ptr,
@@ -203,7 +269,6 @@ void Generator::generate(Node *n) {
                             n->var_name
                     )
             );
-
             break;
         }
         case Node::CONST: { // generate constant value
@@ -490,7 +555,6 @@ void Generator::generate(Node *n) {
                         n->var_name
                 );
 
-                el_ptr->getType()->dump();
                 if (el_ptr->getType() != val->getType()) {
                     if (el_ptr->getType() == Type::getInt32PtrTy(context) && val->getType()->isDoubleTy()) {
                         Value *buf = val;
@@ -501,7 +565,13 @@ void Generator::generate(Node *n) {
                         val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
                     }
                 }
-                builder->CreateStore(val, el_ptr); // update value of variable
+                if (el_ptr->getType() == PointerType::get(ArrayType::get(Type::getInt8Ty(context), 256), 0)) {
+                    Value *arr = builder->CreateBitCast(
+                            el_ptr,
+                            Type::getInt8PtrTy(context)
+                    );
+                    builder->CreateMemCpy(arr, val, 255, 1);
+                } else builder->CreateStore(val, el_ptr); // update value of variable
 
             } else {
                 if (table.at(n->var_name)->getType() != val->getType()) {
@@ -514,7 +584,14 @@ void Generator::generate(Node *n) {
                         val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
                     }
                 }
-                builder->CreateStore(val, table.at(n->var_name)); // update value of variable
+
+                if (table.at(n->var_name)->getType() == PointerType::get(ArrayType::get(Type::getInt8Ty(context), 256), 0)) {
+                    Value *arr = builder->CreateBitCast(
+                            table.at(n->var_name),
+                            Type::getInt8PtrTy(context)
+                    );
+                    builder->CreateMemCpy(arr, val, 255, 1);
+                } else builder->CreateStore(val, table.at(n->var_name)); // update value of variable
             }
             break;
         }
@@ -660,6 +737,9 @@ void Generator::generate(Node *n) {
                     case Node::floating:
                         args_types.push_back(Type::getDoubleTy(context));
                         break;
+                    case Node::string:
+                        args_types.push_back(Type::getInt8PtrTy(context));
+                        break;
                 }
                 args_names.push_back(iterator.first);
             }
@@ -670,6 +750,9 @@ void Generator::generate(Node *n) {
                     break;
                 case Node::floating:
                     type = FunctionType::get(Type::getDoubleTy(context), args_types, false);
+                    break;
+                case Node::string:
+                    type = FunctionType::get(Type::getInt8PtrTy(context), args_types, false);
                     break;
                 default:
                     type = FunctionType::get(Type::getVoidTy(context), args_types, false);
@@ -704,6 +787,9 @@ void Generator::generate(Node *n) {
                         break;
                     case Node::floating:
                         builder->CreateRet(ConstantFP::get(Type::getDoubleTy(context), 0.0));
+                        break;
+                    case Node::string:
+                        builder->CreateRet(ConstantInt::get(Type::getInt8PtrTy(context), 0));
                         break;
                     default:
                         builder->CreateRetVoid();
@@ -758,12 +844,32 @@ void Generator::generate(Node *n) {
                 use_io();
 
             std::vector<Value*> args;
-            Value *format = table.at("float_in_format");
+            Value *format;
+            bool is_str_var = false;
+            if (table.at(n->var_name)->getType() == Type::getInt32PtrTy(context) || table.at(n->var_name)->getType() == Type::getDoublePtrTy(context))
+                    format = table.at("float_in_format");
+            else {
+                format = table.at("str_in_format");
+                is_str_var = true;
+            }
 
             args.push_back(format);
-            args.push_back(table.at(n->var_name));
-            builder->CreateCall(scanf, args); // call scanf
 
+            Value *var;
+            if (is_str_var) {
+                var = builder->CreateGEP( // get element's pointer
+                        table.at(n->var_name),
+                        {
+                                ConstantInt::get(Type::getInt32Ty(context), 0),
+                                ConstantInt::get(Type::getInt32Ty(context), 0)
+                        },
+                        n->var_name
+                );
+            }
+            else var = table.at(n->var_name);
+            args.push_back(var);
+
+            builder->CreateCall(scanf, args); // call scanf
             break;
         }
         case Node::PROG:

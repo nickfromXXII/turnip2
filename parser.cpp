@@ -230,7 +230,7 @@ Node *Parser::function_arg() {
     }
 
     lexer->next_token();
-    if (lexer->sym != Lexer::INTEGER && lexer->sym != Lexer::FLOATING) {
+    if (lexer->sym != Lexer::INTEGER && lexer->sym != Lexer::FLOATING && lexer->sym != Lexer::STRING) {
         std::cout << lexer->sym << std::endl;
         error("expected variable type");
     }
@@ -243,6 +243,10 @@ Node *Parser::function_arg() {
         case Lexer::FLOATING:
             var_type = Lexer::floating;
             n->value_type = Node::floating;
+            break;
+        case Lexer::STRING:
+            var_type = Lexer::string;
+            n->value_type = Node::string;
             break;
     }
 
@@ -365,7 +369,7 @@ Node *Parser::statement() {
             else {
                 lexer->next_token();
 
-                if (lexer->sym != Lexer::INTEGER && lexer->sym != Lexer::FLOATING)
+                if (lexer->sym != Lexer::INTEGER && lexer->sym != Lexer::FLOATING && lexer->sym != Lexer::STRING)
                     error("expected type of return value");
 
                 switch (lexer->sym) {
@@ -374,6 +378,9 @@ Node *Parser::statement() {
                         break;
                     case Lexer::FLOATING:
                         x->value_type = Node::floating;
+                        break;
+                    case Lexer::STRING:
+                        x->value_type = Node::string;
                         break;
                 }
                 lexer->next_token();
@@ -396,7 +403,7 @@ Node *Parser::statement() {
                 error("expected variable type");
 
             lexer->next_token();
-            if (lexer->sym != Lexer::INTEGER && lexer->sym != Lexer::FLOATING)
+            if (lexer->sym != Lexer::INTEGER && lexer->sym != Lexer::FLOATING && lexer->sym != Lexer::STRING)
                 error("expected variable type");
 
             switch (lexer->sym) {
@@ -407,6 +414,10 @@ Node *Parser::statement() {
                 case Lexer::FLOATING:
                     var_type = Lexer::floating;
                     x->value_type = Node::floating;
+                    break;
+                case Lexer::STRING:
+                    var_type = Lexer::string;
+                    x->value_type = Node::string;
                     break;
             }
 
