@@ -11,7 +11,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 
 #include <iostream>
-#include <stdlib.h>
+#include <unistd.h>
 
 void generateObject(Module *m, std::string &out) {
     InitializeNativeTarget();
@@ -24,7 +24,7 @@ void generateObject(Module *m, std::string &out) {
     std::string error;
     auto target = TargetRegistry::lookupTarget(targetTriple, error);
 
-    if (!target) {
+    if (target == nullptr) {
         errs() << error;
         return;
     }
@@ -57,7 +57,10 @@ void generateObject(Module *m, std::string &out) {
     pass.run(*m);
     dest.flush();
 
-    system(std::string("gcc " + out + ".o " + " -o " + out).c_str());
+#if defined(__linux__)
+    execl("/usr/bin/gcc", "/usr/bin/gcc", std::string(out + ".o").c_str(), std::string("-o" + out).c_str(), NULL);
+#endif
+
 }
 
 int main(int argc, char **argv) {
@@ -77,7 +80,7 @@ int main(int argc, char **argv) {
         lexer->load(code);
 
         Parser *parser = new Parser(lexer);
-        Node *ast = parser->parse();
+        std::shared_ptr<Node> ast = parser->parse();
 
         Generator *generator = new Generator;
         generator->generate(ast);
@@ -86,8 +89,9 @@ int main(int argc, char **argv) {
 
 
         std::string output = "a.out";
-        if (argc >= 3)
+        if (argc >= 3) {
             output = std::string(argv[2]);
+}
 
         generateObject(generator->module, output);
     }

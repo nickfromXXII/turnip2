@@ -1,0 +1,29 @@
+class Int {
+    public value: int;
+
+    public function Int(val: int) : Int {
+        value = val;
+    }
+
+    public function get() : int {
+        return value;
+    }
+
+    public function set(i: int) {
+        value = i;
+    }
+
+    public function add(i: int) : int {
+        value = value + i;
+        return value;
+    }
+};
+
+function main()  # entry point
+{
+    new I: Int = Int(0);
+    new i: int;
+    input i;
+    I.set(i);
+    print I.get();
+}

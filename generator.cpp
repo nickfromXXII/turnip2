@@ -11,27 +11,27 @@
 void Generator::use_io() {
     io_using = true;
 
-    table.insert(std::pair<std::string, Value *>("int_out_format", builder->CreateGlobalStringPtr("%i\n", "int_out_format")));
-    table.insert(std::pair<std::string, Value *>("float_out_format", builder->CreateGlobalStringPtr("%f\n", "float_out_format")));
-    table.insert(std::pair<std::string, Value *>("str_out_format", builder->CreateGlobalStringPtr("%s\n", "str_out_format")));
+    table.insert(std::make_pair("int_out_format", builder->CreateGlobalStringPtr("%i\n", "int_out_format")));
+    table.insert(std::make_pair("float_out_format", builder->CreateGlobalStringPtr("%f\n", "float_out_format")));
+    table.insert(std::make_pair("str_out_format", builder->CreateGlobalStringPtr("%s\n", "str_out_format")));
 
     printfArgs.push_back(Type::getInt8PtrTy(context)); // create the prototype of printf function
     printfType = FunctionType::get(Type::getInt32Ty(context), printfArgs, true);
     printf = module->getOrInsertFunction("printf", printfType);
 
-    table.insert(std::pair<std::string, Value *>("float_in_format", builder->CreateGlobalStringPtr("%d", "float_in_format")));
+    table.insert(std::make_pair("float_in_format", builder->CreateGlobalStringPtr("%d", "float_in_format")));
 
     scanfArgs.push_back(Type::getInt8PtrTy(context)); // create the prototype of scanf function
     scanfType = FunctionType::get(Type::getInt32Ty(context), scanfArgs, true);
     scanf = module->getOrInsertFunction("scanf", scanfType);
 }
 
-void Generator::generate(Node *n) {
+void Generator::generate(std::shared_ptr<Node> n) {
     switch(n->kind) {
         case Node::NEW: {
             if (n->o1 != NULL) { // new array
                 if (n->o1->kind == Node::ARRAY) {
-                    Node *arr = n->o1;
+                    std::shared_ptr<Node> arr = n->o1;
                     generate(arr->o1);
                     Value *elements_count_val = stack.top();
                     stack.pop();
@@ -39,14 +39,15 @@ void Generator::generate(Node *n) {
                     // get number of elements in array
                     int64_t elements_count = 0;
                     if (llvm::ConstantInt *CI = dyn_cast<llvm::ConstantInt>(elements_count_val)) {
-                        if (CI->getBitWidth() <= 32)
+                        if (CI->getBitWidth() <= 32) {
                             elements_count = CI->getSExtValue();
+                        }
                     }
 
                     switch (arr->value_type) {
-                        case Node::integer: // integer array
+                        case Node::INTEGER: // integer array
                             table.insert(
-                                    std::pair<std::string, Value *>(
+                                    std::make_pair(
                                             n->var_name,
                                             builder->CreateAlloca(
                                                     ArrayType::get(
@@ -58,13 +59,28 @@ void Generator::generate(Node *n) {
                                     )
                             );
                             break;
-                        case Node::floating: // float array
+                        case Node::FLOATING: // float array
                             table.insert(
-                                    std::pair<std::string, Value *>(
+                                    std::make_pair(
                                             n->var_name,
                                             builder->CreateAlloca(
                                                     ArrayType::get(
                                                             Type::getDoubleTy(context),
+                                                            static_cast<uint64_t>(elements_count)
+                                                    ),
+                                                    nullptr,
+                                                    n->var_name + "_ptr"
+                                            )
+                                    )
+                            );
+                            break;
+                        case Node::USER: // float array
+                            table.insert(
+                                    std::make_pair(
+                                            n->var_name,
+                                            builder->CreateAlloca(
+                                                    ArrayType::get(
+                                                            PointerType::get(user_types.at(n->user_type).first, 0),
                                                             static_cast<uint64_t>(elements_count)
                                                     ),
                                                     nullptr,
@@ -78,9 +94,9 @@ void Generator::generate(Node *n) {
             }
             else { // just variable
                 switch (n->value_type) {
-                    case Node::integer: // int variable
+                    case Node::INTEGER: // int variable
                         table.insert(
-                                std::pair<std::string, Value *>(
+                                std::make_pair(
                                         n->var_name,
                                         builder->CreateAlloca(
                                                 Type::getInt32Ty(context),
@@ -89,12 +105,23 @@ void Generator::generate(Node *n) {
                                 )
                         );
                         break;
-                    case Node::floating: // float variable
+                    case Node::FLOATING: // float variable
                         table.insert(
-                                std::pair<std::string, Value *>(
+                                std::make_pair(
                                         n->var_name,
                                         builder->CreateAlloca(
                                                 Type::getDoubleTy(context),
+                                                nullptr,
+                                                n->var_name + "_ptr")
+                                )
+                        );
+                        break;
+                    case Node::USER: // user-type variable
+                        table.insert(
+                                std::make_pair(
+                                        n->var_name,
+                                        builder->CreateAlloca(
+                                                user_types.at(n->user_type).first,
                                                 nullptr,
                                                 n->var_name + "_ptr")
                                 )
@@ -106,28 +133,48 @@ void Generator::generate(Node *n) {
         }
         case Node::INIT: { // create and initialize the variable
             switch (n->value_type) {
-                case Node::integer: // integer variable
+                case Node::INTEGER: // integer variable
                     table.insert(
-                            std::pair<std::string, Value *>(n->var_name,
-                                                            builder->CreateAlloca(
-                                                                    Type::getInt32Ty(context),
-                                                                    nullptr,
-                                                                    n->var_name + "_ptr")
+                            std::make_pair(
+                                    n->var_name,
+                                    builder->CreateAlloca(
+                                            Type::getInt32Ty(context),
+                                            nullptr,
+                                            n->var_name + "_ptr")
                             )
                     );
                     break;
-                case Node::floating: // float variable
+                case Node::FLOATING: // float variable
+                    table.insert(std::make_pair(
+                            n->var_name,
+                            builder->CreateAlloca(
+                                    Type::getDoubleTy(context),
+                                    nullptr,
+                                    n->var_name + "_ptr")
+                                 )
+                    );
+                    break;
+                case Node::USER: // user-type variable
                     table.insert(
-                            std::pair<std::string, Value *>(n->var_name,                                                            builder->CreateAlloca(
-                                                                    Type::getDoubleTy(context),
-                                                                    nullptr,
-                                                                    n->var_name + "_ptr")
+                            std::make_pair(
+                                    n->var_name,
+                                    builder->CreateAlloca(
+                                            user_types.at(n->user_type).first,
+                                            nullptr,
+                                            n->var_name + "_ptr")
                             )
                     );
                     break;
             }
 
+            if (n->o1->kind == Node::OBJECT_CONSTRUCT)
+                stack.push(table.at(n->var_name));
+
             generate(n->o1); // generate initial value
+
+            if (n->o1->kind == Node::OBJECT_CONSTRUCT) // object constructors are void functions
+                break;
+
             Value *val = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
 
@@ -141,6 +188,7 @@ void Generator::generate(Node *n) {
                     val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
                 }
             }
+
             builder->CreateStore(val, table.at(n->var_name));
             break;
         }
@@ -149,37 +197,146 @@ void Generator::generate(Node *n) {
             break;
         case Node::VAR: { // push value of the variable to the stack
             Type *type;
-            if(table.at(n->var_name)->getType() == Type::getInt32PtrTy(context))
-                type = Type::getInt32Ty(context);
-            else if(table.at(n->var_name)->getType() == Type::getDoublePtrTy(context))
-                type = Type::getDoubleTy(context);
 
-            stack.push(builder->CreateLoad(type, table.at(n->var_name), n->var_name));
+            auto ptr = table.at(n->var_name);
+            for (auto &&user_type : user_types) {
+                auto iter = std::find(user_type.second.second.begin(), user_type.second.second.end(), n->var_name);
+                if (iter != user_type.second.second.end()) {
+                    ptr = builder->CreateGEP(
+                            user_type.second.first,
+                            builder->CreateLoad(table.at("this")),
+                            {
+                                    ConstantInt::get(Type::getInt32Ty(context), 0),
+                                    ConstantInt::get(
+                                            Type::getInt32Ty(context),
+                                            static_cast<uint64_t>(std::distance(user_type.second.second.begin(), iter))
+                                    )
+                            },
+                            n->var_name
+                    );
+                }
+            }
+
+            if (table.at(n->var_name)->getType() == Type::getInt32PtrTy(context)) {
+                type = Type::getInt32Ty(context);
+            } else if (table.at(n->var_name)->getType() == Type::getDoublePtrTy(context)) {
+                type = Type::getDoubleTy(context);
+            } else if (cast<PointerType>(table.at(n->var_name)->getType())->getElementType()->isStructTy()) {
+                type = cast<PointerType>(table.at(n->var_name)->getType());
+            }
+
+            stack.push(builder->CreateLoad(type, ptr, n->var_name));
+            break;
+        }
+        case Node::PROPERTY_ACCESS: {
+            Value *ptr;
+            auto user_type = user_types.at(n->user_type);
+            user_type.first->dump();
+            auto iter = std::find(begin(user_type.second), end(user_type.second), n->property_name);
+            if (iter != end(user_type.second)) {
+                ptr = builder->CreateGEP(
+                        user_type.first,
+                        table.at(n->var_name),
+                        {
+                                ConstantInt::get(Type::getInt32Ty(context), 0),
+                                ConstantInt::get(
+                                        Type::getInt32Ty(context),
+                                        static_cast<uint64_t>(std::distance(begin(user_type.second), iter))
+                                )
+                        },
+                        n->var_name
+                );
+            }
+            stack.push(builder->CreateLoad(ptr, n->property_name));
             break;
         }
         case Node::FUNCTION_CALL: { // generate function's call
             Function *callee = functions.at(n->var_name); // get the function's prototype
 
-            if (callee->arg_size() != n->call_args.size()) // check number of arguments in prototype and in calling
+            if (callee->arg_size() != n->func_call_args.size()) { // check number of arguments in prototype and in calling
                 throw std::string(
                         "Invalid number arguments (" +
-                                std::to_string(n->call_args.size()) +
+                                std::to_string(n->func_call_args.size()) +
                                 ") , expected " +
                                 std::to_string(callee->arg_size())
                 );
+            }
 
             std::vector<Value *> args; // generate values of arguments
-            for (auto &&arg : n->call_args) {
+            for (auto &&arg : n->func_call_args) {
                 generate(arg); // generate value
                 args.push_back(stack.top()); // take it from the stack
                 stack.pop(); // erase it from the stack
             }
 
             Value* call; // generate call
-            if (callee->getReturnType() == Type::getVoidTy(context))
+            if (callee->getReturnType() == Type::getVoidTy(context)) {
                 call = builder->CreateCall(callee, args); // LLVM forbids give name to call of void function
-            else
+            } else {
                 call = builder->CreateCall(callee, args, n->var_name+"_call");
+            }
+
+            stack.push(call); // push call to the stack
+            break;
+        }
+        case Node::METHOD_CALL: { // generate function's call
+            Function *callee = functions.at(n->property_name); // get the function's prototype
+
+            if (callee->arg_size() != n->func_call_args.size() && callee->arg_size()-n->func_call_args.size()>1) { // check number of arguments in prototype and in calling
+                throw std::string(
+                        " Invalid number arguments (" +
+                        std::to_string(n->func_call_args.size()) +
+                        "), expected " +
+                        std::to_string(callee->arg_size())
+                );
+            }
+
+            std::vector<Value *> args; // generate values of arguments
+            args.push_back(table.at(n->var_name));
+            stack.pop();
+            for (auto &&arg : n->func_call_args) {
+                generate(arg); // generate value
+                args.push_back(stack.top()); // take it from the stack
+                stack.pop(); // erase it from the stack
+            }
+
+            Value* call; // generate call
+            if (callee->getReturnType() == Type::getVoidTy(context)) {
+                call = builder->CreateCall(callee, args); // LLVM forbids give name to call of void function
+            } else {
+                call = builder->CreateCall(callee, args, n->var_name+"_call");
+            }
+
+            stack.push(call); // push call to the stack
+            break;
+        }
+        case Node::OBJECT_CONSTRUCT: { // generate function's call
+            Function *callee = functions.at(n->var_name); // get the function's prototype
+
+            if (callee->arg_size() != n->func_call_args.size() && callee->arg_size()-n->func_call_args.size()>1) { // check number of arguments in prototype and in calling
+                throw std::string(
+                        " Invalid number arguments (" +
+                        std::to_string(n->func_call_args.size()) +
+                        "), expected " +
+                        std::to_string(callee->arg_size())
+                );
+            }
+
+            std::vector<Value *> args; // generate values of arguments
+            args.push_back(stack.top());
+            stack.pop();
+            for (auto &&arg : n->func_call_args) {
+                generate(arg); // generate value
+                args.push_back(stack.top()); // take it from the stack
+                stack.pop(); // erase it from the stack
+            }
+
+            Value* call; // generate call
+            if (callee->getReturnType() == Type::getVoidTy(context)) {
+                call = builder->CreateCall(callee, args); // LLVM forbids give name to call of void function
+            } else {
+                call = builder->CreateCall(callee, args, n->var_name+"_call");
+            }
 
             stack.push(call); // push call to the stack
             break;
@@ -203,19 +360,18 @@ void Generator::generate(Node *n) {
                             n->var_name
                     )
             );
-
             break;
         }
         case Node::CONST: { // generate constant value
             switch (n->value_type) {
-                case Node::string: // str constant
+                case Node::STRING: // str constant
                     stack.push(builder->CreateGlobalStringPtr(n->str_val));
                     break;
-                case Node::integer: { // integer constant
+                case Node::INTEGER: { // integer constant
                     stack.push(ConstantInt::get(context, APInt(32, static_cast<uint64_t>(n->int_val))));
                     break;
                 }
-                case Node::floating: // float constant
+                case Node::FLOATING: // float constant
                     stack.push(ConstantFP::get(context, APFloat(n->float_val)));
                     break;
             }
@@ -471,7 +627,14 @@ void Generator::generate(Node *n) {
             break;
         }
         case Node::SET: { // generate an update variable's or array element's value
+            if (n->o1->kind == Node::OBJECT_CONSTRUCT)
+                stack.push(table.at(n->var_name));
+
             generate(n->o1); // generate new value
+
+            if (n->o1->kind == Node::OBJECT_CONSTRUCT) // object constructors are void functions
+                break;
+
             Value *val = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
 
@@ -490,7 +653,6 @@ void Generator::generate(Node *n) {
                         n->var_name
                 );
 
-                el_ptr->getType()->dump();
                 if (el_ptr->getType() != val->getType()) {
                     if (el_ptr->getType() == Type::getInt32PtrTy(context) && val->getType()->isDoubleTy()) {
                         Value *buf = val;
@@ -514,8 +676,133 @@ void Generator::generate(Node *n) {
                         val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
                     }
                 }
-                builder->CreateStore(val, table.at(n->var_name)); // update value of variable
+
+                auto ptr = table.at(n->var_name);
+
+                for (auto &&user_type : user_types) {
+                    auto iter = std::find(user_type.second.second.begin(), user_type.second.second.end(), n->var_name);
+                    if (iter != user_type.second.second.end()) {
+                        ptr = builder->CreateGEP(
+                                user_type.second.first,
+                                builder->CreateLoad(table.at("this")),
+                                {
+                                        ConstantInt::get(Type::getInt32Ty(context), 0),
+                                        ConstantInt::get(
+                                                Type::getInt32Ty(context),
+                                                static_cast<uint64_t>(std::distance(user_type.second.second.begin(), iter))
+                                        )
+                                },
+                                n->var_name
+                        );
+                    }
+                }
+
+                builder->CreateStore(val, ptr); // update value of variable
             }
+            break;
+        }
+        case Node::CLASS_DEFINE: {
+            std::vector<Type *> properties_types;
+            std::vector<std::string> properties_names;
+            for (auto &&defProperty : n->class_def_properties) { // generate properties first
+                if (defProperty.second.second->kind == Node::NEW) {
+                    properties_names.push_back(defProperty.first);
+                    switch (defProperty.second.second->value_type) {
+                        case Node::INTEGER:
+                            properties_types.push_back(Type::getInt32Ty(context));
+                            break;
+                        case Node::FLOATING:
+                            properties_types.push_back(Type::getDoubleTy(context));
+                            break;
+                    }
+                    table.insert(std::make_pair(defProperty.first, builder->CreateAlloca(properties_types.back(), nullptr)));
+                }
+            }
+
+            StructType* class_type = StructType::create(context, n->var_name);
+            class_type->setBody(properties_types);
+            user_types.insert(std::make_pair(n->var_name, std::make_pair(class_type, properties_names)));
+
+            for (auto &&defProperty : n->class_def_properties) { // then, generate methods
+                if (defProperty.second.second->kind == Node::FUNCTION_DEFINE) {
+                    FunctionType *type;
+
+                    // generate arguments
+                    std::vector<Type *> args_types;
+                    std::vector<std::string> args_names;
+
+                    args_types.push_back(PointerType::get(class_type, 0));
+                    args_names.push_back("this");
+
+                    for (auto &iterator : defProperty.second.second->o1->func_def_args) {
+                        switch (iterator.second->value_type) {
+                            case Node::INTEGER:
+                                args_types.push_back(Type::getInt32Ty(context));
+                                break;
+                            case Node::FLOATING:
+                                args_types.push_back(Type::getDoubleTy(context));
+                                break;
+                            case Node::USER:
+                                args_types.push_back(PointerType::get(user_types.at(iterator.second->user_type_name).first, 0));
+                                break;
+                        }
+                        args_names.push_back(iterator.first);
+                    }
+
+                    switch (defProperty.second.second->value_type) { // set type of the function
+                        case Node::INTEGER:
+                            type = FunctionType::get(Type::getInt32Ty(context), args_types, false);
+                            break;
+                        case Node::FLOATING:
+                            type = FunctionType::get(Type::getDoubleTy(context), args_types, false);
+                            break;
+                        case Node::USER:
+                            type = FunctionType::get(PointerType::get(class_type, 0), args_types, false);
+                            break;
+                        default:
+                            type = FunctionType::get(Type::getVoidTy(context), args_types, false);
+                    }
+                    Function *func = Function::Create(type, Function::ExternalLinkage, defProperty.second.second->var_name, module);
+                    functions.insert(std::make_pair(defProperty.second.second->var_name, func));
+
+                    BasicBlock *entry = BasicBlock::Create(context, "entry", func);
+                    builder->SetInsertPoint(entry); // set new insert block
+
+                    unsigned long idx = 0;
+                    for (auto &Arg : func->args()) { // create pointers to arguments of the function
+                        std::string name = args_names.at(idx++);
+                        Arg.setName(name);
+
+                        // insert argument's allocator to the table
+                        table.insert(std::make_pair(name, builder->CreateAlloca(
+                                Arg.getType(),
+                                nullptr,
+                                name+"_ptr"))
+                        );
+                        builder->CreateStore(&Arg, table.at(name)); // store the value of argument to allocator
+                    }
+
+                    generate(defProperty.second.second->o2); // generate body of the function
+
+                    if (!func->getAttributes().hasAttribute(0, "ret")) {
+                        switch (defProperty.second.second->value_type) { // create default return value
+                            case Node::INTEGER:
+                                builder->CreateRet(ConstantInt::get(Type::getInt32Ty(context), 0));
+                                break;
+                            case Node::FLOATING:
+                                builder->CreateRet(ConstantFP::get(Type::getDoubleTy(context), 0.0));
+                                break;
+                            default:
+                                builder->CreateRetVoid();
+                        }
+                    }
+
+                    for (auto &Arg : func->args()) { // erase arguments' allocators from the table
+                        table.erase(Arg.getName());
+                    }
+                }
+            }
+
             break;
         }
         case Node::IF: { // generate 'if' condition without 'else' branch
@@ -610,9 +897,7 @@ void Generator::generate(Node *n) {
         case Node::REPEAT: { // 'repeat' cycle FIXME
             if (table.count("index") == 0)
             {
-                table.insert(std::pair<std::string, Value *>("index", builder->CreateAlloca(Type::getInt32Ty(context),
-                                                                                            nullptr,
-                                                                                            "index_ptr")));
+                table.insert(std::make_pair("index", builder->CreateAlloca(Type::getInt32Ty(context), nullptr, "index_ptr")));
             }
 
             builder->CreateStore(ConstantInt::get(Type::getInt32Ty(context), APInt(32, 0)),
@@ -652,34 +937,38 @@ void Generator::generate(Node *n) {
             // generate arguments
             std::vector<Type *> args_types;
             std::vector<std::string> args_names;
-            for (auto &iterator : n->o1->def_args) {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-                switch (iterator.second) {
-                    case Node::integer:
+            for (auto &iterator : n->o1->func_def_args) {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                switch (iterator.second->value_type) {
+                    case Node::INTEGER:
                         args_types.push_back(Type::getInt32Ty(context));
                         break;
-                    case Node::floating:
+                    case Node::FLOATING:
                         args_types.push_back(Type::getDoubleTy(context));
+                        break;
+                    case Node::USER:
+                        args_types.push_back(PointerType::get(user_types.at(iterator.second->user_type_name).first, 0));
                         break;
                 }
                 args_names.push_back(iterator.first);
             }
 
             switch (n->value_type) { // set type of the function
-                case Node::integer:
+                case Node::INTEGER:
                     type = FunctionType::get(Type::getInt32Ty(context), args_types, false);
                     break;
-                case Node::floating:
+                case Node::FLOATING:
                     type = FunctionType::get(Type::getDoubleTy(context), args_types, false);
                     break;
+                case Node::USER:
+                    type = FunctionType::get(PointerType::get(user_types.at(n->user_type).first, 0), args_types, false);
                 default:
                     type = FunctionType::get(Type::getVoidTy(context), args_types, false);
             }
             Function *func = Function::Create(type, Function::ExternalLinkage, n->var_name, module);
-            functions.insert(std::pair<std::string, Function*>(n->var_name, func));
+            functions.insert(std::make_pair(n->var_name, func));
 
             BasicBlock *entry = BasicBlock::Create(context, "entry", func);
             builder->SetInsertPoint(entry); // set new insert block
-            currentBlock = entry;
 
             unsigned long idx = 0;
             for (auto &Arg : func->args()) { // create pointers to arguments of the function
@@ -687,7 +976,7 @@ void Generator::generate(Node *n) {
                 Arg.setName(name);
 
                 // insert argument's allocator to the table
-                table.insert(std::pair<std::string, Value *>(name, builder->CreateAlloca(
+                table.insert(std::make_pair(name, builder->CreateAlloca(
                         Arg.getType(),
                         nullptr,
                         name+"_ptr"))
@@ -699,10 +988,10 @@ void Generator::generate(Node *n) {
 
             if (!func->getAttributes().hasAttribute(0, "ret")) {
                 switch (n->value_type) { // create default return value
-                    case Node::integer:
+                    case Node::INTEGER:
                         builder->CreateRet(ConstantInt::get(Type::getInt32Ty(context), 0));
                         break;
-                    case Node::floating:
+                    case Node::FLOATING:
                         builder->CreateRet(ConstantFP::get(Type::getDoubleTy(context), 0.0));
                         break;
                     default:
@@ -710,8 +999,9 @@ void Generator::generate(Node *n) {
                 }
             }
 
-            for (auto &Arg : func->args()) // erase arguments' allocators from the table
+            for (auto &Arg : func->args()) { // erase arguments' allocators from the table
                 table.erase(Arg.getName());
+            }
 
             break;
         }
@@ -732,19 +1022,21 @@ void Generator::generate(Node *n) {
 
             break;
         case Node::PRINT: { // print something TODO: migrate to call of prinf function
-            if (!io_using)
+            if (!io_using) {
                 use_io();
+}
 
             generate(n->o1); // generate the value to print
             std::vector<Value*> args;
 
             Value *format;
-            if (stack.top()->getType()->isIntegerTy(32)) // print integer
+            if (stack.top()->getType()->isIntegerTy(32)) { // print integer
                 format = table.at("int_out_format");
-            else if (stack.top()->getType()->isDoubleTy()) // print float
+            } else if (stack.top()->getType()->isDoubleTy()) { // print float
                 format = table.at("float_out_format");
-            else // print string
+            } else { // print string
                 format = table.at("str_out_format");
+}
 
             args.push_back(format);
             args.push_back(stack.top()); // get the value from the stack
@@ -754,8 +1046,9 @@ void Generator::generate(Node *n) {
             break;
         }
         case Node::INPUT: {
-            if (!io_using)
+            if (!io_using) {
                 use_io();
+}
 
             std::vector<Value*> args;
             Value *format = table.at("float_in_format");

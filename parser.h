@@ -8,22 +8,24 @@
 #include "lexer.h"
 #include "node.h"
 
+#include <vector>
+
 class Parser {
     Lexer *lexer;
 
     void error(const std::string &e);
-    Node *term();
-    Node *sum();
-    Node *test();
-    Node *expr();
-    Node *function_arg();
-    Node *paren_expr();
-    Node *function_args();
-    Node *statement();
+    std::shared_ptr<Node> term();
+    std::shared_ptr<Node> sum();
+    std::shared_ptr<Node> test();
+    std::shared_ptr<Node> expr();
+    std::shared_ptr<Node> function_arg();
+    std::shared_ptr<Node> paren_expr();
+    std::shared_ptr<Node> function_args();
+    std::shared_ptr<Node> statement();
 
 public:
-    Parser(Lexer *l) : lexer(l) {}
-    Node *parse();
+    explicit Parser(Lexer *l) : lexer(l) {}
+    std::shared_ptr<Node> parse();
 
 };
 
