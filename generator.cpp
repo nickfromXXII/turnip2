@@ -167,29 +167,54 @@ void Generator::generate(std::shared_ptr<Node> n) {
                     break;
             }
 
-            if (n->o1->kind == Node::OBJECT_CONSTRUCT)
-                stack.push(table.at(n->var_name));
+            if (n->o1->value_type == Node::USER && n->o1->kind == Node::VAR) {
+                if (n->value_type != n->o1->value_type || n->user_type != n->o1->user_type)
+                    throw std::string("types of objects '"
+                                      + n->var_name
+                                      + "' ("
+                                      + std::string(
+                            n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int"
+                                                                                                           : "float"))
+                                      + ") and '"
+                                      + n->o1->var_name
+                                      + "' ("
+                                      + std::string(
+                            n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER
+                                                                                    ? "int" : "float"))
+                                      + ") does not match!"
+                    );
 
-            generate(n->o1); // generate initial value
-
-            if (n->o1->kind == Node::OBJECT_CONSTRUCT) // object constructors are void functions
-                break;
-
-            Value *val = stack.top(); // take it from the stack
-            stack.pop(); // erase it from the stack
-
-            if (table.at(n->var_name)->getType() != val->getType()) {
-                if (table.at(n->var_name)->getType()->isIntegerTy(32) && val->getType()->isDoubleTy()) {
-                    Value *buf = val;
-                    val = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
-                }
-                else if (table.at(n->var_name)->getType()->isDoubleTy() && val->getType()->isIntegerTy(32)) {
-                    Value *buf = val;
-                    val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
-                }
+                builder->CreateMemCpy(
+                        table.at(n->var_name),
+                        table.at(n->o1->var_name),
+                        module->getDataLayout().getTypeAllocSize(table.at(n->o1->var_name)->getType()),
+                        table.at(n->o1->var_name)->getPointerAlignment(module->getDataLayout())
+                );
             }
+            else {
+                if (n->o1->kind == Node::OBJECT_CONSTRUCT)
+                    stack.push(table.at(n->var_name));
 
-            builder->CreateStore(val, table.at(n->var_name));
+                generate(n->o1); // generate initial value
+
+                if (n->o1->kind == Node::OBJECT_CONSTRUCT) // object constructors are void functions
+                    break;
+
+                Value *val = stack.top(); // take it from the stack
+                stack.pop(); // erase it from the stack
+
+                if (table.at(n->var_name)->getType() != val->getType()) {
+                    if (table.at(n->var_name)->getType()->isIntegerTy(32) && val->getType()->isDoubleTy()) {
+                        Value *buf = val;
+                        val = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
+                    } else if (table.at(n->var_name)->getType()->isDoubleTy() && val->getType()->isIntegerTy(32)) {
+                        Value *buf = val;
+                        val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
+                    }
+                }
+
+                builder->CreateStore(val, table.at(n->var_name));
+            }
             break;
         }
         case Node::DELETE:
@@ -256,9 +281,9 @@ void Generator::generate(std::shared_ptr<Node> n) {
             if (callee->arg_size() != n->func_call_args.size()) { // check number of arguments in prototype and in calling
                 throw std::string(
                         "Invalid number arguments (" +
-                                std::to_string(n->func_call_args.size()) +
-                                ") , expected " +
-                                std::to_string(callee->arg_size())
+                        std::to_string(n->func_call_args.size()) +
+                        ") , expected " +
+                        std::to_string(callee->arg_size())
                 );
             }
 
@@ -627,78 +652,108 @@ void Generator::generate(std::shared_ptr<Node> n) {
             break;
         }
         case Node::SET: { // generate an update variable's or array element's value
-            if (n->o1->kind == Node::OBJECT_CONSTRUCT)
-                stack.push(table.at(n->var_name));
+            if (n->o1->value_type == Node::USER && n->o1->kind == Node::VAR) {
+                if (n->value_type != n->o1->value_type || n->user_type != n->o1->user_type)
+                    throw std::string("types of objects '"
+                                      + n->var_name
+                                      + "' ("
+                                      + std::string(
+                            n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int"
+                                                                                                           : "float"))
+                                      + ") and '"
+                                      + n->o1->var_name
+                                      + "' ("
+                                      + std::string(
+                            n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER
+                                                                                    ? "int" : "float"))
+                                      + ") does not match!"
+                    );
 
-            generate(n->o1); // generate new value
+                builder->CreateMemCpy(
+                        table.at(n->var_name),
+                        table.at(n->o1->var_name),
+                        module->getDataLayout().getTypeAllocSize(table.at(n->o1->var_name)->getType()),
+                        table.at(n->o1->var_name)->getPointerAlignment(module->getDataLayout())
+                );
+            }
+            else {
+                if (n->o1->kind == Node::OBJECT_CONSTRUCT)
+                    stack.push(table.at(n->var_name));
 
-            if (n->o1->kind == Node::OBJECT_CONSTRUCT) // object constructors are void functions
-                break;
+                generate(n->o1); // generate new value
 
-            Value *val = stack.top(); // take it from the stack
-            stack.pop(); // erase it from the stack
+                if (n->o1->kind == Node::OBJECT_CONSTRUCT) // object constructors are void functions
+                    break;
 
-            if (n->o2 != NULL) { // change value of array's element
-                generate(n->o2); // generate the number of element
-                Value *elements_count_val = stack.top(); // take it from the stack
+                Value *val = stack.top(); // take it from the stack
                 stack.pop(); // erase it from the stack
 
-                Value *arr_ptr = table.at(n->var_name); // get array's pointer
-                Value *el_ptr = builder->CreateGEP( // get element's pointer
-                        arr_ptr,
-                        {
-                                ConstantInt::get(Type::getInt32Ty(context), 0),
-                                elements_count_val
-                        },
-                        n->var_name
-                );
+                if (n->o2 != NULL) { // change value of array's element
+                    generate(n->o2); // generate the number of element
+                    Value *elements_count_val = stack.top(); // take it from the stack
+                    stack.pop(); // erase it from the stack
 
-                if (el_ptr->getType() != val->getType()) {
-                    if (el_ptr->getType() == Type::getInt32PtrTy(context) && val->getType()->isDoubleTy()) {
-                        Value *buf = val;
-                        val = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
+                    Value *arr_ptr = table.at(n->var_name); // get array's pointer
+                    Value *el_ptr = builder->CreateGEP( // get element's pointer
+                            arr_ptr,
+                            {
+                                    ConstantInt::get(Type::getInt32Ty(context), 0),
+                                    elements_count_val
+                            },
+                            n->var_name
+                    );
+
+                    if (el_ptr->getType() != val->getType()) {
+                        if (el_ptr->getType() == Type::getInt32PtrTy(context) && val->getType()->isDoubleTy()) {
+                            Value *buf = val;
+                            val = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
+                        } else if (el_ptr->getType() == Type::getDoublePtrTy(context) &&
+                                   val->getType()->isIntegerTy(32)) {
+                            Value *buf = val;
+                            val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
+                        }
                     }
-                    else if (el_ptr->getType() == Type::getDoublePtrTy(context) && val->getType()->isIntegerTy(32)) {
-                        Value *buf = val;
-                        val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
+                    builder->CreateStore(val, el_ptr); // update value of variable
+
+                } else {
+                    if (table.at(n->var_name)->getType() != val->getType()) {
+                        if (table.at(n->var_name)->getType() == Type::getInt32PtrTy(context) &&
+                            val->getType()->isDoubleTy()) {
+                            Value *buf = val;
+                            val = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
+                        } else if (table.at(n->var_name)->getType() == Type::getDoublePtrTy(context) &&
+                                   val->getType()->isIntegerTy(32)) {
+                            Value *buf = val;
+                            val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
+                        }
                     }
+
+                    auto ptr = table.at(n->var_name);
+
+                    for (auto &&user_type : user_types) {
+                        auto iter = std::find(user_type.second.second.begin(), user_type.second.second.end(),
+                                              n->var_name);
+                        if (iter != user_type.second.second.end()) {
+                            ptr = builder->CreateGEP(
+                                    user_type.second.first,
+                                    builder->CreateLoad(table.at("this")),
+                                    {
+                                            ConstantInt::get(Type::getInt32Ty(context), 0),
+                                            ConstantInt::get(
+                                                    Type::getInt32Ty(context),
+                                                    static_cast<uint64_t>(std::distance(user_type.second.second.begin(),
+                                                                                        iter))
+                                            )
+                                    },
+                                    n->var_name
+                            );
+                        }
+                    }
+
+                    builder->CreateStore(val, ptr); // update value of variable
                 }
-                builder->CreateStore(val, el_ptr); // update value of variable
-
-            } else {
-                if (table.at(n->var_name)->getType() != val->getType()) {
-                    if (table.at(n->var_name)->getType() == Type::getInt32PtrTy(context) && val->getType()->isDoubleTy()) {
-                        Value *buf = val;
-                        val = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
-                    }
-                    else if (table.at(n->var_name)->getType() == Type::getDoublePtrTy(context) && val->getType()->isIntegerTy(32)) {
-                        Value *buf = val;
-                        val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
-                    }
-                }
-
-                auto ptr = table.at(n->var_name);
-
-                for (auto &&user_type : user_types) {
-                    auto iter = std::find(user_type.second.second.begin(), user_type.second.second.end(), n->var_name);
-                    if (iter != user_type.second.second.end()) {
-                        ptr = builder->CreateGEP(
-                                user_type.second.first,
-                                builder->CreateLoad(table.at("this")),
-                                {
-                                        ConstantInt::get(Type::getInt32Ty(context), 0),
-                                        ConstantInt::get(
-                                                Type::getInt32Ty(context),
-                                                static_cast<uint64_t>(std::distance(user_type.second.second.begin(), iter))
-                                        )
-                                },
-                                n->var_name
-                        );
-                    }
-                }
-
-                builder->CreateStore(val, ptr); // update value of variable
             }
+
             break;
         }
         case Node::CLASS_DEFINE: {
@@ -937,7 +992,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
             // generate arguments
             std::vector<Type *> args_types;
             std::vector<std::string> args_names;
-            for (auto &iterator : n->o1->func_def_args) {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+            for (auto &iterator : n->o1->func_def_args) {
                 switch (iterator.second->value_type) {
                     case Node::INTEGER:
                         args_types.push_back(Type::getInt32Ty(context));
@@ -946,7 +1001,10 @@ void Generator::generate(std::shared_ptr<Node> n) {
                         args_types.push_back(Type::getDoubleTy(context));
                         break;
                     case Node::USER:
-                        args_types.push_back(PointerType::get(user_types.at(iterator.second->user_type_name).first, 0));
+                        args_types.push_back(PointerType::get(
+                                user_types.at(iterator.second->user_type_name).first,
+                                static_cast<unsigned>(module->getDataLayout().getTypeAllocSize(user_types.at(iterator.second->user_type_name).first)))
+                        );
                         break;
                 }
                 args_names.push_back(iterator.first);
@@ -976,10 +1034,14 @@ void Generator::generate(std::shared_ptr<Node> n) {
                 Arg.setName(name);
 
                 // insert argument's allocator to the table
-                table.insert(std::make_pair(name, builder->CreateAlloca(
-                        Arg.getType(),
-                        nullptr,
-                        name+"_ptr"))
+                table.insert(
+                        std::make_pair(
+                                name,
+                                builder->CreateAlloca(
+                                        Arg.getType(),
+                                        nullptr,
+                                        name+"_ptr")
+                        )
                 );
                 builder->CreateStore(&Arg, table.at(name)); // store the value of argument to allocator
             }
@@ -1024,7 +1086,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
         case Node::PRINT: { // print something TODO: migrate to call of prinf function
             if (!io_using) {
                 use_io();
-}
+            }
 
             generate(n->o1); // generate the value to print
             std::vector<Value*> args;
@@ -1036,7 +1098,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
                 format = table.at("float_out_format");
             } else { // print string
                 format = table.at("str_out_format");
-}
+            }
 
             args.push_back(format);
             args.push_back(stack.top()); // get the value from the stack
@@ -1048,7 +1110,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
         case Node::INPUT: {
             if (!io_using) {
                 use_io();
-}
+            }
 
             std::vector<Value*> args;
             Value *format = table.at("float_in_format");

@@ -1,7 +1,7 @@
 class Int {
     public value: int;
 
-    public function Int(val: int) : Int {
+    public function Int(val: int) {
         value = val;
     }
 
@@ -21,9 +21,7 @@ class Int {
 
 function main()  # entry point
 {
-    new I: Int = Int(0);
-    new i: int;
-    input i;
-    I.set(i);
-    print I.get();
+    new I1: Int = Int(5);
+    new I2: Int = I1;
+    print I2.get();
 }

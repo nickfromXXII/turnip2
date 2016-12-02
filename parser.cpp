@@ -19,6 +19,9 @@ std::shared_ptr<Node> Parser::term() {
         x->var_name = lexer->str_val;
 
         lexer->next_token();
+
+        x->value_type = lexer->vars.at(x->var_name)->value_type;
+        x->user_type = lexer->vars.at(x->var_name)->user_type_name;
         if (lexer->sym == Lexer::L_ACCESS) {
             x->kind = Node::ARRAY_ACCESS;
             lexer->next_token();
@@ -30,8 +33,6 @@ std::shared_ptr<Node> Parser::term() {
             }
 
             lexer->next_token();
-            x->value_type = lexer->vars.at(x->var_name)->value_type;
-            x->user_type = lexer->vars.at(x->var_name)->user_type_name;
         }
         else if (lexer->sym == Lexer::POINT) {
             x->kind = Node::PROPERTY_ACCESS;
@@ -594,7 +595,7 @@ std::shared_ptr<Node> Parser::statement() {
             } else {
                 lexer->next_token();
 
-                if (lexer->sym != Lexer::INT && lexer->sym != Lexer::FLOAT) {
+                if (lexer->sym != Lexer::INT && lexer->sym != Lexer::FLOAT && lexer->sym != Lexer::USER) {
                     error("expected type of return value");
                 }
 
