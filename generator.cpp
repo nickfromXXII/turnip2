@@ -246,8 +246,9 @@ void Generator::generate(std::shared_ptr<Node> n) {
                 type = Type::getInt32Ty(context);
             } else if (table.at(n->var_name)->getType() == Type::getDoublePtrTy(context)) {
                 type = Type::getDoubleTy(context);
-            } else if (cast<PointerType>(table.at(n->var_name)->getType())->getElementType()->isStructTy()) {
-                type = cast<PointerType>(table.at(n->var_name)->getType());
+            } else {
+                stack.push(table.at(n->var_name));
+                break;
             }
 
             stack.push(builder->CreateLoad(type, ptr, n->var_name));
@@ -256,12 +257,18 @@ void Generator::generate(std::shared_ptr<Node> n) {
         case Node::PROPERTY_ACCESS: {
             Value *ptr;
             auto user_type = user_types.at(n->user_type);
-            user_type.first->dump();
-            auto iter = std::find(begin(user_type.second), end(user_type.second), n->property_name);
-            if (iter != end(user_type.second)) {
+            auto iter = std::find(std::begin(user_type.second), std::end(user_type.second), n->property_name);
+
+            Value* src = table.at(n->var_name);
+            while (cast<PointerType>(src->getType())->getElementType()->isPointerTy()) {
+                Value *temp = builder->CreateLoad(src);
+                src = temp;
+            }
+
+            if (iter != std::end(user_type.second)) {
                 ptr = builder->CreateGEP(
                         user_type.first,
-                        table.at(n->var_name),
+                        src,
                         {
                                 ConstantInt::get(Type::getInt32Ty(context), 0),
                                 ConstantInt::get(
@@ -317,7 +324,10 @@ void Generator::generate(std::shared_ptr<Node> n) {
             }
 
             std::vector<Value *> args; // generate values of arguments
-            args.push_back(table.at(n->var_name));
+            if (cast<PointerType>(table.at(n->var_name)->getType())->getElementType()->isPointerTy())
+                args.push_back(builder->CreateLoad(table.at(n->var_name)));
+            else args.push_back(table.at(n->var_name));
+
             stack.pop();
             for (auto &&arg : n->func_call_args) {
                 generate(arg); // generate value
@@ -332,6 +342,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
                 call = builder->CreateCall(callee, args, n->var_name+"_call");
             }
 
+            call->dump();
             stack.push(call); // push call to the stack
             break;
         }
@@ -858,6 +869,10 @@ void Generator::generate(std::shared_ptr<Node> n) {
                 }
             }
 
+            for (auto &&item : properties_names) {
+                table.erase(item);
+            }
+
             break;
         }
         case Node::IF: { // generate 'if' condition without 'else' branch
@@ -1002,8 +1017,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
                         break;
                     case Node::USER:
                         args_types.push_back(PointerType::get(
-                                user_types.at(iterator.second->user_type_name).first,
-                                static_cast<unsigned>(module->getDataLayout().getTypeAllocSize(user_types.at(iterator.second->user_type_name).first)))
+                                user_types.at(iterator.second->user_type_name).first, 0)
                         );
                         break;
                 }

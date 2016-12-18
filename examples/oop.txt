@@ -19,9 +19,15 @@ class Int {
     }
 };
 
+function foo(i: Int) : int
+{
+    print i.value;
+}
+
 function main()  # entry point
 {
     new I1: Int = Int(5);
     new I2: Int = I1;
-    print I2.get();
+    foo(I2);
+    new i: Int;
 }

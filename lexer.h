@@ -38,6 +38,7 @@ public:
     std::map<std::string, std::shared_ptr<type>> vars;
     std::map<std::string, std::shared_ptr<type>> arrays;
     std::map<std::string, std::shared_ptr<type>> functions;
+    std::map<std::string, std::map<std::string, std::shared_ptr<type>>> functions_args;
 
     enum token_types {
         USER_TYPE, POINT,
