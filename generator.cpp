@@ -324,11 +324,13 @@ void Generator::generate(std::shared_ptr<Node> n) {
             }
 
             std::vector<Value *> args; // generate values of arguments
-            if (cast<PointerType>(table.at(n->var_name)->getType())->getElementType()->isPointerTy())
-                args.push_back(builder->CreateLoad(table.at(n->var_name)));
-            else args.push_back(table.at(n->var_name));
+            Value *self = table.at(n->var_name);
+            while (cast<PointerType>(self->getType())->getElementType()->isPointerTy()) {
+                Value *temp = builder->CreateLoad(self);
+                self = temp;
+            }
+            args.push_back(self);
 
-            stack.pop();
             for (auto &&arg : n->func_call_args) {
                 generate(arg); // generate value
                 args.push_back(stack.top()); // take it from the stack
