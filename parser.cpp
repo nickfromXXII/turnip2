@@ -303,7 +303,7 @@ std::shared_ptr<Node> Parser::expr() {
 
     x = test();
 
-    if (x->kind == Node::VAR || x->kind == Node::ARRAY_ACCESS) {
+    if (x->kind == Node::VAR || x->kind == Node::ARRAY_ACCESS || x->kind == Node::PROPERTY_ACCESS) {
         if (lexer->sym == Lexer::EQUAL) {
             t = x;
             x = std::make_shared<Node>(Node::SET);
@@ -311,13 +311,15 @@ std::shared_ptr<Node> Parser::expr() {
             lexer->next_token();
 
             x->var_name = t->var_name;
+            x->property_name = t->property_name;
 
             if (t->kind == Node::ARRAY_ACCESS) {
                 x->o2 = t->o1;
             }
 
             x->o1 = expr();
-            x->value_type = Node::INTEGER;
+            x->value_type = t->value_type;
+            x->user_type = t->user_type;
         }
     }
 

@@ -267,7 +267,6 @@ void Generator::generate(std::shared_ptr<Node> n) {
 
             if (iter != std::end(user_type.second)) {
                 ptr = builder->CreateGEP(
-                        user_type.first,
                         src,
                         {
                                 ConstantInt::get(Type::getInt32Ty(context), 0),
@@ -276,7 +275,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
                                         static_cast<uint64_t>(std::distance(begin(user_type.second), iter))
                                 )
                         },
-                        n->var_name
+                        n->var_name + "::" + n->property_name
                 );
             }
             stack.push(builder->CreateLoad(ptr, n->property_name));
@@ -728,6 +727,48 @@ void Generator::generate(std::shared_ptr<Node> n) {
                     }
                     builder->CreateStore(val, el_ptr); // update value of variable
 
+                } else if (!n->property_name.empty()) { // change value of object's property
+                    Value *property_ptr;
+                    Value *temp = table.at(n->var_name); // FIXME optimize it
+                    while (temp->getType()->isPointerTy()) {
+                        Value *_temp = builder->CreateLoad(temp);
+                        temp = _temp;
+                    }
+
+                    auto user_type = user_types.at(temp->getType()->getStructName().str());
+                    auto iter = std::find(std::begin(user_type.second), std::end(user_type.second), n->property_name);
+
+                    Value* src = table.at(n->var_name);
+                    while (cast<PointerType>(src->getType())->getElementType()->isPointerTy()) {
+                        Value *temp = builder->CreateLoad(src);
+                        src = temp;
+                    }
+
+                    if (iter != std::end(user_type.second)) {
+                        property_ptr = builder->CreateGEP(
+                                src,
+                                {
+                                        ConstantInt::get(Type::getInt32Ty(context), 0),
+                                        ConstantInt::get(
+                                                Type::getInt32Ty(context),
+                                                static_cast<uint64_t>(std::distance(begin(user_type.second), iter))
+                                        )
+                                },
+                                n->var_name + "::" + n->property_name
+                        );
+                    }
+
+                    /*if (el_ptr->getType() != val->getType()) {
+                        if (el_ptr->getType() == Type::getInt32PtrTy(context) && val->getType()->isDoubleTy()) {
+                            Value *buf = val;
+                            val = builder->CreateFPToSI(buf, Type::getInt32Ty(context));
+                        } else if (el_ptr->getType() == Type::getDoublePtrTy(context) &&
+                                   val->getType()->isIntegerTy(32)) {
+                            Value *buf = val;
+                            val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
+                        }
+                    }*/
+                    builder->CreateStore(val, property_ptr); // update value of variable
                 } else {
                     if (table.at(n->var_name)->getType() != val->getType()) {
                         if (table.at(n->var_name)->getType() == Type::getInt32PtrTy(context) &&
@@ -762,7 +803,6 @@ void Generator::generate(std::shared_ptr<Node> n) {
                             );
                         }
                     }
-
                     builder->CreateStore(val, ptr); // update value of variable
                 }
             }

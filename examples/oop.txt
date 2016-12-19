@@ -2,26 +2,26 @@ class Int {
     public value: int;
 
     public function Int(val: int) {
-        value = val;
+        this.value = val;
     }
 
     public function get() : int {
-        return value;
+        return this.value;
     }
 
     public function set(i: int) {
-        value = i;
+        this.value = i;
     }
 
     public function add(i: int) : int {
-        value = value + i;
-        return value;
+        this.value = this.value + i;
+        return this.value;
     }
 };
 
 function foo(i: Int) : int
 {
-    print i.get();
+    i.value = 7;
 }
 
 function main()  # entry point
@@ -29,5 +29,5 @@ function main()  # entry point
     new I1: Int = Int(5);
     new I2: Int = I1;
     foo(I2);
-    new i: Int;
+    print I2.get();
 }
