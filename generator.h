@@ -20,9 +20,9 @@
 using namespace llvm;
 
 class Generator {
-    std::map<std::string, std::pair<StructType *, std::vector<std::string>>> user_types;
+    std::map<std::string, std::pair<StructType *, std::pair<std::vector<std::string>, std::vector<int>>>> user_types;
     std::map<std::string, Value *> table;
-    std::map<std::string, Function *> functions;
+    std::map<std::string, std::pair<Function *, int>> functions;
     LLVMContext context;
 
     IRBuilder<> *builder;

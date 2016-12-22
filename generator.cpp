@@ -225,8 +225,8 @@ void Generator::generate(std::shared_ptr<Node> n) {
 
             auto ptr = table.at(n->var_name);
             for (auto &&user_type : user_types) {
-                auto iter = std::find(user_type.second.second.begin(), user_type.second.second.end(), n->var_name);
-                if (iter != user_type.second.second.end()) {
+                auto iter = std::find(user_type.second.second.first.begin(), user_type.second.second.first.end(), n->var_name);
+                if (iter != user_type.second.second.first.end()) {
                     ptr = builder->CreateGEP(
                             user_type.second.first,
                             builder->CreateLoad(table.at("this")),
@@ -234,7 +234,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
                                     ConstantInt::get(Type::getInt32Ty(context), 0),
                                     ConstantInt::get(
                                             Type::getInt32Ty(context),
-                                            static_cast<uint64_t>(std::distance(user_type.second.second.begin(), iter))
+                                            static_cast<uint64_t>(std::distance(user_type.second.second.first.begin(), iter))
                                     )
                             },
                             n->var_name
@@ -257,7 +257,11 @@ void Generator::generate(std::shared_ptr<Node> n) {
         case Node::PROPERTY_ACCESS: {
             Value *ptr;
             auto user_type = user_types.at(n->user_type);
-            auto iter = std::find(std::begin(user_type.second), std::end(user_type.second), n->property_name);
+            auto iter = std::find(std::begin(user_type.second.first), std::end(user_type.second.first), n->property_name);
+            int property_access = user_type.second.second.at(static_cast<unsigned>(std::distance(std::begin(user_type.second.first),iter)));
+
+            if (n->var_name != "this" && property_access == Node::PRIVATE)
+                throw std::string(" property '" + n->property_name + "' of object '" + n->var_name + "' is private");
 
             Value* src = table.at(n->var_name);
             while (cast<PointerType>(src->getType())->getElementType()->isPointerTy()) {
@@ -265,14 +269,14 @@ void Generator::generate(std::shared_ptr<Node> n) {
                 src = temp;
             }
 
-            if (iter != std::end(user_type.second)) {
+            if (iter != std::end(user_type.second.first)) {
                 ptr = builder->CreateGEP(
                         src,
                         {
                                 ConstantInt::get(Type::getInt32Ty(context), 0),
                                 ConstantInt::get(
                                         Type::getInt32Ty(context),
-                                        static_cast<uint64_t>(std::distance(begin(user_type.second), iter))
+                                        static_cast<uint64_t>(std::distance(begin(user_type.second.first), iter))
                                 )
                         },
                         n->var_name + "::" + n->property_name
@@ -282,7 +286,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
             break;
         }
         case Node::FUNCTION_CALL: { // generate function's call
-            Function *callee = functions.at(n->var_name); // get the function's prototype
+            Function *callee = functions.at(n->var_name).first; // get the function's prototype
 
             if (callee->arg_size() != n->func_call_args.size()) { // check number of arguments in prototype and in calling
                 throw std::string(
@@ -311,7 +315,10 @@ void Generator::generate(std::shared_ptr<Node> n) {
             break;
         }
         case Node::METHOD_CALL: { // generate function's call
-            Function *callee = functions.at(n->property_name); // get the function's prototype
+            Function *callee = functions.at(n->property_name).first; // get the function's prototype
+
+            if (n->var_name != "this" && functions.at(n->property_name).second == Node::PRIVATE)
+                throw std::string(" method '" + n->property_name + "' of object '" + n->var_name + "' is private");
 
             if (callee->arg_size() != n->func_call_args.size() && callee->arg_size()-n->func_call_args.size()>1) { // check number of arguments in prototype and in calling
                 throw std::string(
@@ -343,12 +350,11 @@ void Generator::generate(std::shared_ptr<Node> n) {
                 call = builder->CreateCall(callee, args, n->var_name+"_call");
             }
 
-            call->dump();
             stack.push(call); // push call to the stack
             break;
         }
         case Node::OBJECT_CONSTRUCT: { // generate function's call
-            Function *callee = functions.at(n->var_name); // get the function's prototype
+            Function *callee = functions.at(n->var_name).first; // get the function's prototype
 
             if (callee->arg_size() != n->func_call_args.size() && callee->arg_size()-n->func_call_args.size()>1) { // check number of arguments in prototype and in calling
                 throw std::string(
@@ -736,7 +742,11 @@ void Generator::generate(std::shared_ptr<Node> n) {
                     }
 
                     auto user_type = user_types.at(temp->getType()->getStructName().str());
-                    auto iter = std::find(std::begin(user_type.second), std::end(user_type.second), n->property_name);
+                    auto iter = std::find(std::begin(user_type.second.first), std::end(user_type.second.first), n->property_name);
+                    int property_access = user_type.second.second.at(static_cast<unsigned>(std::distance(std::begin(user_type.second.first),iter)));
+
+                    if (n->var_name != "this" && property_access == Node::PRIVATE)
+                        throw std::string(" property '" + n->property_name + "' of object '" + n->var_name + "' is private");
 
                     Value* src = table.at(n->var_name);
                     while (cast<PointerType>(src->getType())->getElementType()->isPointerTy()) {
@@ -744,14 +754,14 @@ void Generator::generate(std::shared_ptr<Node> n) {
                         src = temp;
                     }
 
-                    if (iter != std::end(user_type.second)) {
+                    if (iter != std::end(user_type.second.first)) {
                         property_ptr = builder->CreateGEP(
                                 src,
                                 {
                                         ConstantInt::get(Type::getInt32Ty(context), 0),
                                         ConstantInt::get(
                                                 Type::getInt32Ty(context),
-                                                static_cast<uint64_t>(std::distance(begin(user_type.second), iter))
+                                                static_cast<uint64_t>(std::distance(begin(user_type.second.first), iter))
                                         )
                                 },
                                 n->var_name + "::" + n->property_name
@@ -785,9 +795,9 @@ void Generator::generate(std::shared_ptr<Node> n) {
                     auto ptr = table.at(n->var_name);
 
                     for (auto &&user_type : user_types) {
-                        auto iter = std::find(user_type.second.second.begin(), user_type.second.second.end(),
+                        auto iter = std::find(user_type.second.second.first.begin(), user_type.second.second.first.end(),
                                               n->var_name);
-                        if (iter != user_type.second.second.end()) {
+                        if (iter != user_type.second.second.first.end()) {
                             ptr = builder->CreateGEP(
                                     user_type.second.first,
                                     builder->CreateLoad(table.at("this")),
@@ -795,8 +805,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
                                             ConstantInt::get(Type::getInt32Ty(context), 0),
                                             ConstantInt::get(
                                                     Type::getInt32Ty(context),
-                                                    static_cast<uint64_t>(std::distance(user_type.second.second.begin(),
-                                                                                        iter))
+                                                    static_cast<uint64_t>(std::distance(user_type.second.second.first.begin(), iter))
                                             )
                                     },
                                     n->var_name
@@ -812,9 +821,11 @@ void Generator::generate(std::shared_ptr<Node> n) {
         case Node::CLASS_DEFINE: {
             std::vector<Type *> properties_types;
             std::vector<std::string> properties_names;
+            std::vector<int> properties_access;
             for (auto &&defProperty : n->class_def_properties) { // generate properties first
                 if (defProperty.second.second->kind == Node::NEW) {
                     properties_names.push_back(defProperty.first);
+                    properties_access.push_back(defProperty.second.first);
                     switch (defProperty.second.second->value_type) {
                         case Node::INTEGER:
                             properties_types.push_back(Type::getInt32Ty(context));
@@ -829,7 +840,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
 
             StructType* class_type = StructType::create(context, n->var_name);
             class_type->setBody(properties_types);
-            user_types.insert(std::make_pair(n->var_name, std::make_pair(class_type, properties_names)));
+            user_types.insert(std::make_pair(n->var_name, std::make_pair(class_type, std::make_pair(properties_names, properties_access))));
 
             for (auto &&defProperty : n->class_def_properties) { // then, generate methods
                 if (defProperty.second.second->kind == Node::FUNCTION_DEFINE) {
@@ -871,7 +882,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
                             type = FunctionType::get(Type::getVoidTy(context), args_types, false);
                     }
                     Function *func = Function::Create(type, Function::ExternalLinkage, defProperty.second.second->var_name, module);
-                    functions.insert(std::make_pair(defProperty.second.second->var_name, func));
+                    functions.insert(std::make_pair(defProperty.second.second->var_name, std::make_pair(func, defProperty.second.first)));
 
                     BasicBlock *entry = BasicBlock::Create(context, "entry", func);
                     builder->SetInsertPoint(entry); // set new insert block
@@ -1079,7 +1090,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
                     type = FunctionType::get(Type::getVoidTy(context), args_types, false);
             }
             Function *func = Function::Create(type, Function::ExternalLinkage, n->var_name, module);
-            functions.insert(std::make_pair(n->var_name, func));
+            functions.insert(std::make_pair(n->var_name, std::make_pair(func, Node::PUBLIC)));
 
             BasicBlock *entry = BasicBlock::Create(context, "entry", func);
             builder->SetInsertPoint(entry); // set new insert block

@@ -1,5 +1,5 @@
 class Int {
-    public value: int;
+    private value: int;
 
     public function Int(val: int) {
         this.value = val;
@@ -13,6 +13,10 @@ class Int {
         this.value = i;
     }
 
+    private function getOne() : int {
+        return 1;
+    }
+
     public function add(i: int) : int {
         this.value = this.value + i;
         return this.value;
@@ -21,7 +25,7 @@ class Int {
 
 function foo(i: Int) : int
 {
-    i.value = 7;
+    i.set(7); # correct
 }
 
 function main()  # entry point
