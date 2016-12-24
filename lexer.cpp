@@ -194,10 +194,27 @@ void Lexer::next_token(bool ignore) {
                     if (ignore) {
                         sym = ID;
                         str_val = str;
-                    } else { error("'" + str + "' was not declared in this scope");
-}
+                    } else {
+                        error("'" + str + "' was not declared in this scope");
+                    }
                 }
             }
         }
     }
+}
+
+bool Lexer::var_defined(const std::string &name) {
+    return !(this->vars.find(name) == std::cend(this->vars));
+}
+
+bool Lexer::arr_defined(const std::string &name) {
+    return !(this->arrays.find(name) == std::cend(this->arrays));
+}
+
+bool Lexer::fn_defined(const std::string &name) {
+    return !(this->functions.find(name) == std::cend(this->functions));
+}
+
+bool Lexer::type_defined(const std::string &name) {
+    return !(this->types.find(name) == std::cend(this->types));
 }

@@ -91,9 +91,9 @@ int main(int argc, char **argv) {
         std::string output = "a.out";
         if (argc >= 3) {
             output = std::string(argv[2]);
-}
+        }
 
-        generateObject(generator->module, output);
+        generateObject(generator->module.get(), output);
     }
     catch (const std::string &err) {
         std::cerr << "In file " << argv[1] << ":" << err << std::endl;

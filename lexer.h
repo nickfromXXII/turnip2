@@ -24,6 +24,10 @@ class Lexer {
 public:
     void load(std::vector<char> c);
     void next_token(bool ignore = false);
+    bool var_defined(const std::string &name);
+    bool arr_defined(const std::string &name);
+    bool fn_defined(const std::string &name);
+    bool type_defined(const std::string &name);
 
     int sym{};
     int line = 1;
@@ -32,13 +36,10 @@ public:
     double float_val{};
     std::string str_val;
 
-    enum val_type { VOID, INTEGER, FLOATING, STRING, USER };
-
     std::map<std::string, std::pair<std::map<std::string, std::shared_ptr<type>>, std::map<std::string, std::shared_ptr<type>>>> types;
     std::map<std::string, std::shared_ptr<type>> vars;
     std::map<std::string, std::shared_ptr<type>> arrays;
     std::map<std::string, std::shared_ptr<type>> functions;
-    std::map<std::string, std::map<std::string, std::shared_ptr<type>>> functions_args;
 
     enum token_types {
         USER_TYPE, POINT,

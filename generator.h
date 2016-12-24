@@ -9,6 +9,7 @@
 #include <map>
 #include <stack>
 #include <string>
+#include <memory>
 
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
@@ -16,6 +17,8 @@
 #include <llvm/IR/Value.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/DataLayout.h>
+#include <llvm/Transforms/Scalar.h>
+#include <llvm/IR/LegacyPassManager.h>
 
 using namespace llvm;
 
@@ -25,8 +28,9 @@ class Generator {
     std::map<std::string, std::pair<Function *, int>> functions;
     LLVMContext context;
 
-    IRBuilder<> *builder;
+    std::unique_ptr<IRBuilder<>> builder;
     std::stack<Value*> stack;
+    std::unique_ptr<legacy::FunctionPassManager> passmgr;
 
     std::vector<Type*> printfArgs;
     FunctionType *printfType;
@@ -40,13 +44,9 @@ class Generator {
     void use_io();
 
 public:
-    Generator() {
-        module = new Module("trnp2", context);
-        builder = new IRBuilder<>(context);
-    }
-
+    Generator();
     void generate(std::shared_ptr<Node> n);
-    Module *module;
+    std::unique_ptr<Module> module;
 
 };
 

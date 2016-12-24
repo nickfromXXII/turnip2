@@ -8,6 +8,30 @@
 #include <llvm/IR/InstrTypes.h>
 #include "generator.h"
 
+Generator::Generator() {
+    module = std::make_unique<Module>("trnp2", context);
+    builder = std::make_unique<IRBuilder<>>(context);
+
+    passmgr = std::make_unique<legacy::FunctionPassManager>(module.get());
+    passmgr->add(createInstructionSimplifierPass());
+    passmgr->add(createInstructionCombiningPass());
+    passmgr->add(createReassociatePass());
+    passmgr->add(createDeadCodeEliminationPass());
+    passmgr->add(createDeadInstEliminationPass());
+    passmgr->add(createDeadStoreEliminationPass());
+    passmgr->add(createConstantHoistingPass());
+    passmgr->add(createLoadCombinePass());
+    passmgr->add(createAggressiveDCEPass());
+    passmgr->add(createLoopLoadEliminationPass());
+    passmgr->add(createConstantPropagationPass());
+    passmgr->add(createGVNHoistPass());
+    passmgr->add(createCFGSimplificationPass());
+    passmgr->add(createLoopSimplifyCFGPass());
+    passmgr->add(createMemCpyOptPass());
+
+    passmgr->doInitialization();
+}
+
 void Generator::use_io() {
     io_using = true;
 
@@ -225,8 +249,12 @@ void Generator::generate(std::shared_ptr<Node> n) {
 
             auto ptr = table.at(n->var_name);
             for (auto &&user_type : user_types) {
-                auto iter = std::find(user_type.second.second.first.begin(), user_type.second.second.first.end(), n->var_name);
-                if (iter != user_type.second.second.first.end()) {
+                auto iter = std::find(
+                        std::begin(user_type.second.second.first),
+                        std::end(user_type.second.second.first),
+                        n->var_name
+                );
+                if (iter != std::end(user_type.second.second.first)) {
                     ptr = builder->CreateGEP(
                             user_type.second.first,
                             builder->CreateLoad(table.at("this")),
@@ -234,7 +262,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
                                     ConstantInt::get(Type::getInt32Ty(context), 0),
                                     ConstantInt::get(
                                             Type::getInt32Ty(context),
-                                            static_cast<uint64_t>(std::distance(user_type.second.second.first.begin(), iter))
+                                            static_cast<uint64_t>(std::distance(std::begin(user_type.second.second.first), iter))
                                     )
                             },
                             n->var_name
@@ -257,8 +285,12 @@ void Generator::generate(std::shared_ptr<Node> n) {
         case Node::PROPERTY_ACCESS: {
             Value *ptr;
             auto user_type = user_types.at(n->user_type);
-            auto iter = std::find(std::begin(user_type.second.first), std::end(user_type.second.first), n->property_name);
-            int property_access = user_type.second.second.at(static_cast<unsigned>(std::distance(std::begin(user_type.second.first),iter)));
+            auto iter = std::find(
+                    std::begin(user_type.second.first),
+                    std::end(user_type.second.first),
+                    n->property_name
+            );
+            int property_access = user_type.second.second.at(static_cast<unsigned>(std::distance(std::begin(user_type.second.first), iter)));
 
             if (n->var_name != "this" && property_access == Node::PRIVATE)
                 throw std::string(" property '" + n->property_name + "' of object '" + n->var_name + "' is private");
@@ -276,7 +308,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
                                 ConstantInt::get(Type::getInt32Ty(context), 0),
                                 ConstantInt::get(
                                         Type::getInt32Ty(context),
-                                        static_cast<uint64_t>(std::distance(begin(user_type.second.first), iter))
+                                        static_cast<uint64_t>(std::distance(std::begin(user_type.second.first), iter))
                                 )
                         },
                         n->var_name + "::" + n->property_name
@@ -347,7 +379,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
             if (callee->getReturnType() == Type::getVoidTy(context)) {
                 call = builder->CreateCall(callee, args); // LLVM forbids give name to call of void function
             } else {
-                call = builder->CreateCall(callee, args, n->var_name+"_call");
+                call = builder->CreateCall(callee, args, n->var_name+"::"+n->property_name+"_call");
             }
 
             stack.push(call); // push call to the stack
@@ -414,9 +446,10 @@ void Generator::generate(std::shared_ptr<Node> n) {
                     stack.push(ConstantInt::get(context, APInt(32, static_cast<uint64_t>(n->int_val))));
                     break;
                 }
-                case Node::FLOATING: // float constant
+                case Node::FLOATING: { // float constant
                     stack.push(ConstantFP::get(context, APFloat(n->float_val)));
                     break;
+                }
             }
             break;
         }
@@ -735,14 +768,18 @@ void Generator::generate(std::shared_ptr<Node> n) {
 
                 } else if (!n->property_name.empty()) { // change value of object's property
                     Value *property_ptr;
-                    Value *temp = table.at(n->var_name); // FIXME optimize it
+                    Value *temp = table.at(n->var_name);
                     while (temp->getType()->isPointerTy()) {
                         Value *_temp = builder->CreateLoad(temp);
                         temp = _temp;
                     }
 
                     auto user_type = user_types.at(temp->getType()->getStructName().str());
-                    auto iter = std::find(std::begin(user_type.second.first), std::end(user_type.second.first), n->property_name);
+                    auto iter = std::find(
+                            std::begin(user_type.second.first),
+                            std::end(user_type.second.first),
+                            n->property_name
+                    );
                     int property_access = user_type.second.second.at(static_cast<unsigned>(std::distance(std::begin(user_type.second.first),iter)));
 
                     if (n->var_name != "this" && property_access == Node::PRIVATE)
@@ -761,7 +798,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
                                         ConstantInt::get(Type::getInt32Ty(context), 0),
                                         ConstantInt::get(
                                                 Type::getInt32Ty(context),
-                                                static_cast<uint64_t>(std::distance(begin(user_type.second.first), iter))
+                                                static_cast<uint64_t>(std::distance(std::begin(user_type.second.first), iter))
                                         )
                                 },
                                 n->var_name + "::" + n->property_name
@@ -795,9 +832,12 @@ void Generator::generate(std::shared_ptr<Node> n) {
                     auto ptr = table.at(n->var_name);
 
                     for (auto &&user_type : user_types) {
-                        auto iter = std::find(user_type.second.second.first.begin(), user_type.second.second.first.end(),
-                                              n->var_name);
-                        if (iter != user_type.second.second.first.end()) {
+                        auto iter = std::find(
+                                std::begin(user_type.second.second.first),
+                                std::end(user_type.second.second.first),
+                                n->var_name
+                        );
+                        if (iter != std::end(user_type.second.second.first)) {
                             ptr = builder->CreateGEP(
                                     user_type.second.first,
                                     builder->CreateLoad(table.at("this")),
@@ -805,7 +845,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
                                             ConstantInt::get(Type::getInt32Ty(context), 0),
                                             ConstantInt::get(
                                                     Type::getInt32Ty(context),
-                                                    static_cast<uint64_t>(std::distance(user_type.second.second.first.begin(), iter))
+                                                    static_cast<uint64_t>(std::distance(std::begin(user_type.second.second.first), iter))
                                             )
                                     },
                                     n->var_name
@@ -881,7 +921,7 @@ void Generator::generate(std::shared_ptr<Node> n) {
                         default:
                             type = FunctionType::get(Type::getVoidTy(context), args_types, false);
                     }
-                    Function *func = Function::Create(type, Function::ExternalLinkage, defProperty.second.second->var_name, module);
+                    Function *func = Function::Create(type, Function::ExternalLinkage, defProperty.second.second->var_name, module.get());
                     functions.insert(std::make_pair(defProperty.second.second->var_name, std::make_pair(func, defProperty.second.first)));
 
                     BasicBlock *entry = BasicBlock::Create(context, "entry", func);
@@ -915,6 +955,8 @@ void Generator::generate(std::shared_ptr<Node> n) {
                                 builder->CreateRetVoid();
                         }
                     }
+
+                    passmgr->run(*func); // run the optimizer
 
                     for (auto &Arg : func->args()) { // erase arguments' allocators from the table
                         table.erase(Arg.getName());
@@ -1086,10 +1128,11 @@ void Generator::generate(std::shared_ptr<Node> n) {
                     break;
                 case Node::USER:
                     type = FunctionType::get(PointerType::get(user_types.at(n->user_type).first, 0), args_types, false);
+                    break;
                 default:
                     type = FunctionType::get(Type::getVoidTy(context), args_types, false);
             }
-            Function *func = Function::Create(type, Function::ExternalLinkage, n->var_name, module);
+            Function *func = Function::Create(type, Function::ExternalLinkage, n->var_name, module.get());
             functions.insert(std::make_pair(n->var_name, std::make_pair(func, Node::PUBLIC)));
 
             BasicBlock *entry = BasicBlock::Create(context, "entry", func);
@@ -1127,6 +1170,8 @@ void Generator::generate(std::shared_ptr<Node> n) {
                         builder->CreateRetVoid();
                 }
             }
+
+            passmgr->run(*func); // run the optimizer
 
             for (auto &Arg : func->args()) { // erase arguments' allocators from the table
                 table.erase(Arg.getName());
