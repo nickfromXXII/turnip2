@@ -5,10 +5,12 @@
 #ifndef TURNIP2_LEXER_H
 #define TURNIP2_LEXER_H
 
+#include "type.h"
 
 #include <vector>
 #include <fstream>
 #include <map>
+#include <memory>
 
 class Lexer {
     std::vector<char> code;
@@ -22,23 +24,28 @@ class Lexer {
 public:
     void load(std::vector<char> c);
     void next_token(bool ignore = false);
+    bool var_defined(const std::string &name);
+    bool arr_defined(const std::string &name);
+    bool fn_defined(const std::string &name);
+    bool type_defined(const std::string &name);
 
-    int sym;
+    int sym{};
     int line = 1;
 
-    int int_val;
-    double float_val;
+    int int_val{};
+    double float_val{};
     std::string str_val;
 
-    enum val_type { null, integer, floating, string };
-
-    std::map<std::string, int> vars;
-    std::vector<std::string> arrays;
-    std::vector<std::string> functions;
+    std::map<std::string, std::pair<std::map<std::string, std::shared_ptr<type>>, std::map<std::string, std::shared_ptr<type>>>> types;
+    std::map<std::string, std::shared_ptr<type>> vars;
+    std::map<std::string, std::shared_ptr<type>> arrays;
+    std::map<std::string, std::shared_ptr<type>> functions;
 
     enum token_types {
+        USER_TYPE, POINT,
         NUM_I, NUM_F, STR, ID, FUNCTION_ID,
-        ARRAY, OF, INTEGER, FLOATING,
+        ARRAY, OF, INT, FLOAT,
+        CLASS, PRIVATE, PUBLIC, PROTECTED,
         IF, NOT, ELSE,
         WHILE, DO, REPEAT,
         NEW, DELETE,
@@ -55,8 +62,12 @@ public:
     std::map<std::string, int> WORDS = {
             {"array", ARRAY},
             {"of", OF},
-            {"int", INTEGER},
-            {"float", FLOATING},
+            {"int", INT},
+            {"float", FLOAT},
+            {"class", CLASS},
+            {"private", PRIVATE},
+            {"public", PUBLIC},
+            {"protected", PROTECTED},
             {"if", IF},
             {"else", ELSE},
             {"while", WHILE},
