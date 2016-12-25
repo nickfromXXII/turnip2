@@ -4,8 +4,8 @@
 
 #include "lexer.h"
 #include <iostream>
-#include <string>
 #include <cstring>
+#include <string>
 
 void Lexer::load(std::vector<char> c) {
     ch = ' ';
@@ -101,17 +101,23 @@ void Lexer::next_token(bool ignore) {
             sym = TYPE;
             break;
         }
+        case '.': {
+            getc();
+            sym = POINT;
+            break;
+        }
         case '#': {
-            do getc();
-            while (ch != EOF && ch != '\n' && ch != '\r');
+            do { getc();
+            } while (ch != EOF && ch != '\n' && ch != '\r');
 
-            if (ch != EOF)
+            if (ch != EOF) {
                 next_token();
+            }
 
             break;
         }
         case '"': {
-            std::string str = "";
+            std::string str;
             getc();
 
             while (ch != '"') {
@@ -126,15 +132,15 @@ void Lexer::next_token(bool ignore) {
             break;
         }
         default: {
-            if (isdigit(ch)) {
+            if (isdigit(ch) != 0) {
                 std::string buf;
 
-                while (isdigit(ch) || ch == '.') {
+                while ((isdigit(ch) != 0) || ch == '.') {
                     buf += ch;
                     getc();
                 }
 
-                if (strchr(buf.c_str(), '.')) {
+                if (strchr(buf.c_str(), '.') != nullptr) {
                     sym = NUM_F;
                     float_val = std::stod(buf);
                 }
@@ -142,10 +148,10 @@ void Lexer::next_token(bool ignore) {
                     sym = NUM_I;
                     int_val = std::stoi(buf);
                 }
-            } else if (isalpha(ch)) {
-                std::string str = "";
+            } else if (isalpha(ch) != 0) {
+                std::string str;
 
-                while (isalnum(ch) || ch == '_') {
+                while ((isalnum(ch) != 0) || ch == '_') {
                     str += ch;
                     getc();
                 }
@@ -153,36 +159,62 @@ void Lexer::next_token(bool ignore) {
                 sym = -1;
 
                 for (auto &&item : WORDS) {
-                    if (str == item.first)
+                    if (str == item.first) {
                         sym = item.second;
+                    }
                 }
 
-                if (sym == -1) {
-                    if (str == "index") {
+                if (str == "index") {
+                    sym = ID;
+                    str_val = str;
+                }
+
+                for (auto &&item : vars) {
+                    if (str == item.first) {
                         sym = ID;
                         str_val = str;
                     }
+                }
 
-                    for (auto &&item : vars) {
-                        if (str == item.first)
-                            sym = ID;
-                            str_val = str;
-                    }
-
-                    for (auto &&item : functions) {
-                        if (str == item)
-                            sym = FUNCTION_ID;
+                for (auto &&item : functions) {
+                    if (str == item.first) {
+                        sym = FUNCTION_ID;
                         str_val = str;
                     }
+                }
 
-                    if (sym == -1) {
-                        if (ignore) {
-                            sym = ID;
-                            str_val = str;
-                        } else error("'" + str + "' was not declared in this scope");
+                for (auto &&item : types) {
+                    if (str == item.first) {
+                        sym = USER_TYPE;
+                        str_val = str;
+                    }
+                }
+
+                if (sym == -1) {
+                    if (ignore) {
+                        sym = ID;
+                        str_val = str;
+                    } else {
+                        error("'" + str + "' was not declared in this scope");
                     }
                 }
             }
         }
     }
+}
+
+bool Lexer::var_defined(const std::string &name) {
+    return !(this->vars.find(name) == std::cend(this->vars));
+}
+
+bool Lexer::arr_defined(const std::string &name) {
+    return !(this->arrays.find(name) == std::cend(this->arrays));
+}
+
+bool Lexer::fn_defined(const std::string &name) {
+    return !(this->functions.find(name) == std::cend(this->functions));
+}
+
+bool Lexer::type_defined(const std::string &name) {
+    return !(this->types.find(name) == std::cend(this->types));
 }

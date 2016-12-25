@@ -6,48 +6,48 @@
 #define TURNIP2_GENERATOR_H
 
 #include "node.h"
-#include <string>
 #include <map>
 #include <stack>
+#include <memory>
+#include <string>
 
 #include <llvm/IR/Module.h>
-#include <llvm/IR/Value.h>
-#include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/DataLayout.h>
 #include <llvm/IR/Function.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Value.h>
+#include <llvm/Transforms/Scalar.h>
+#include <llvm/IR/LegacyPassManager.h>
 
 using namespace llvm;
 
 class Generator {
-    std::map<std::string, Value*> table;
-    std::map<std::string, Function*> functions;
+    std::map<std::string, std::pair<StructType *, std::pair<std::vector<std::string>, std::vector<int>>>> user_types;
+    std::map<std::string, Value *> table;
+    std::map<std::string, std::pair<Function *, int>> functions;
     LLVMContext context;
-    BasicBlock *currentBlock;
+    std::vector<std::string> last_vars;
 
-    IRBuilder<> *builder;
+    std::unique_ptr<IRBuilder<>> builder;
     std::stack<Value*> stack;
+    std::unique_ptr<legacy::FunctionPassManager> passmgr;
 
     std::vector<Type*> printfArgs;
     FunctionType *printfType;
-    Constant *printf;
+    Constant *printf{};
 
     std::vector<Type*> scanfArgs;
     FunctionType *scanfType;
-    Constant *scanf;
+    Constant *scanf{};
 
     bool io_using = false;
     void use_io();
 
-    void error(const std::string &e);
-
 public:
-    Generator() {
-        module = new Module("trnp2", context);
-        builder = new IRBuilder<>(context);
-    }
-
-    void generate(Node *n);
-    Module *module;
+    Generator();
+    void generate(const std::shared_ptr<Node>& n);
+    std::unique_ptr<Module> module;
 
 };
 
