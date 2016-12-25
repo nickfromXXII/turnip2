@@ -1,5 +1,5 @@
 class Int {
-    private value: int;
+    public value: int;
 
     public function Int(val: int) {
         this.value = val;
@@ -17,10 +17,6 @@ class Int {
         this.value = this.value + i;
         return this.value;
     }
-
-    public function getptr() : Int {
-        return this;
-    }
 };
 
 function foo(i: Int) : int
@@ -30,18 +26,12 @@ function foo(i: Int) : int
 
 function test() : Int {
     new I: Int = Int(10);
-    I.set(7);
+    I.set(1000);
     return I;
 }
 
 function main()  # entry point
 {
     new I: Int = Int(5);
-
-    if I.get() is 5 {
-        new a: int = 5;
-        print a;
-    }
-
-    print a;
+    print test().value;
 }

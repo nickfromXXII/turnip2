@@ -153,6 +153,74 @@ std::shared_ptr<Node> Parser::term() {
 
         lexer->next_token();
 
+        if (lexer->sym == Lexer::POINT) {
+            std::shared_ptr<Node> t = std::move(x);
+
+            x = std::make_shared<Node>(Node::FUNC_OBJ_PROPERTY_ACCESS);
+            //x->kind = Node::FUNC_OBJ_PROPERTY_ACCESS;
+            x->o1 = t;
+            x->var_name = t->var_name;
+            x->value_type = t->value_type;
+            x->user_type = t->user_type;
+            lexer->next_token(true);
+
+            x->property_name = lexer->str_val;
+
+            try {
+                lexer->types.at(lexer->functions.at(x->var_name)->user_type_name).first.at(x->property_name);
+            } catch (std::out_of_range) {
+                try {
+                    lexer->types.at(lexer->functions.at(x->var_name)->user_type_name).second.at(x->property_name);
+                }
+                catch(std::out_of_range) {
+                    error(
+                            "object returned by function '" +
+                            x->var_name +
+                            "' of class '" +
+                            lexer->functions.at(x->var_name)->user_type_name +
+                            "' has no member named '" +
+                            x->property_name + "'"
+                    );
+                }
+            }
+
+            x->value_type = lexer->functions.at(x->var_name)->value_type;
+            x->user_type = lexer->functions.at(x->var_name)->user_type_name;
+
+            lexer->next_token();
+
+            if (lexer->sym == Lexer::L_PARENT) {
+                x->kind = Node::FUNC_OBJ_METHOD_CALL;
+
+                x->value_type = lexer->types.at(x->user_type).first.at(x->property_name)->value_type;
+                x->user_type = lexer->types.at(x->user_type).first.at(x->property_name)->user_type_name;
+
+                lexer->next_token();
+                while (true) {
+                    if (lexer->sym == Lexer::R_PARENT) {
+                        break;
+                    }
+
+                    x->func_call_args.emplace_back(sum());
+
+                    if (lexer->sym == Lexer::R_PARENT) {
+                        break;
+                    }
+
+                    if (lexer->sym != Lexer::COMMA) {
+                        error("expected ',' or ')' in arguments list");
+                    }
+
+                    lexer->next_token();
+                }
+
+                if (lexer->sym != Lexer::R_PARENT) {
+                    error("expected ')' in arguments list");
+                }
+
+                lexer->next_token();
+            }
+        }
     } else if (lexer->sym == Lexer::USER_TYPE) {
         x = std::make_shared<Node>(Node::OBJECT_CONSTRUCT);
         x->value_type = Node::USER;
@@ -838,7 +906,7 @@ std::shared_ptr<Node> Parser::statement() {
             if (lexer->sym == Lexer::SEMICOLON) {
                 lexer->next_token();
             } else {
-                error("';' expected");
+                error("';' expected, " + std::to_string(lexer->sym) + " found");
             }
         }
     }

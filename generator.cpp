@@ -306,6 +306,46 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             stack.emplace(builder->CreateLoad(type, ptr, n->var_name));
             break;
         }
+        case Node::FUNC_OBJ_PROPERTY_ACCESS: {
+            Value *ptr;
+
+            auto user_type = user_types.at(n->user_type);
+            auto iter = std::find(
+                    std::begin(user_type.second.first),
+                    std::end(user_type.second.first),
+                    n->property_name
+            );
+            int property_access = user_type.second.second.at(static_cast<unsigned>(std::distance(std::begin(user_type.second.first), iter)));
+
+            if (property_access == Node::PRIVATE) {
+                throw std::string(" property '" + n->property_name + "' of object '" + n->var_name + "' is private");
+            }
+
+            generate(n->o1);
+            Value* src = stack.top();
+            stack.pop();
+
+            while (cast<PointerType>(src->getType())->getElementType()->isPointerTy()) {
+                Value *temp = builder->CreateLoad(src);
+                src = temp;
+            }
+
+            if (iter != std::end(user_type.second.first)) {
+                ptr = builder->CreateGEP(
+                        src,
+                        {
+                                ConstantInt::get(Type::getInt32Ty(context), 0),
+                                ConstantInt::get(
+                                        Type::getInt32Ty(context),
+                                        static_cast<uint64_t>(std::distance(std::begin(user_type.second.first), iter))
+                                )
+                        },
+                        n->var_name + "::" + n->property_name
+                );
+            }
+            stack.emplace(builder->CreateLoad(ptr, n->property_name));
+            break;
+        }
         case Node::PROPERTY_ACCESS: {
             Value *ptr;
             auto user_type = user_types.at(n->user_type);
@@ -394,6 +434,49 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                 self = temp;
             }
             args.emplace_back(self);
+
+            for (auto &&arg : n->func_call_args) {
+                generate(arg); // generate value
+                args.emplace_back(stack.top()); // take it from the stack
+                stack.pop(); // erase it from the stack
+            }
+
+            Value* call; // generate call
+            if (callee->getReturnType() == Type::getVoidTy(context)) {
+                call = builder->CreateCall(callee, args); // LLVM forbids give name to call of void function
+            } else {
+                call = builder->CreateCall(callee, args, n->var_name+"::"+n->property_name+"_call");
+            }
+
+            stack.emplace(call); // push call to the stack
+            break;
+        }
+        case Node::FUNC_OBJ_METHOD_CALL: { // generate function's call
+            generate(n->o1);
+            Value *obj = stack.top();
+            stack.pop();
+
+            Function *callee = functions.at(n->property_name).first; // get the function's prototype
+
+            if (n->var_name != "this" && functions.at(n->property_name).second == Node::PRIVATE) {
+                throw std::string(" method '" + n->property_name + "' of object returned by function '" + n->var_name + "' is private");
+            }
+
+            if (callee->arg_size() != n->func_call_args.size() && callee->arg_size()-n->func_call_args.size()>1) { // check number of arguments in prototype and in calling
+                throw std::string(
+                        " Invalid number arguments (" +
+                        std::to_string(n->func_call_args.size()) +
+                        "), expected " +
+                        std::to_string(callee->arg_size())
+                );
+            }
+
+            std::vector<Value *> args; // generate values of arguments
+            while (cast<PointerType>(obj->getType())->getElementType()->isPointerTy()) {
+                Value *temp = builder->CreateLoad(obj);
+                obj = temp;
+            }
+            args.emplace_back(obj);
 
             for (auto &&arg : n->func_call_args) {
                 generate(arg); // generate value
