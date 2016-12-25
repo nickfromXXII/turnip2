@@ -8,15 +8,15 @@
 #include "node.h"
 #include <map>
 #include <stack>
-#include <string>
 #include <memory>
+#include <string>
 
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/DataLayout.h>
+#include <llvm/IR/Function.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Value.h>
-#include <llvm/IR/Function.h>
-#include <llvm/IR/DataLayout.h>
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/IR/LegacyPassManager.h>
 
@@ -27,6 +27,7 @@ class Generator {
     std::map<std::string, Value *> table;
     std::map<std::string, std::pair<Function *, int>> functions;
     LLVMContext context;
+    std::vector<std::string> last_vars;
 
     std::unique_ptr<IRBuilder<>> builder;
     std::stack<Value*> stack;
@@ -45,7 +46,7 @@ class Generator {
 
 public:
     Generator();
-    void generate(std::shared_ptr<Node> n);
+    void generate(const std::shared_ptr<Node>& n);
     std::unique_ptr<Module> module;
 
 };

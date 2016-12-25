@@ -13,13 +13,13 @@ class Int {
         this.value = i;
     }
 
-    private function getOne() : int {
-        return 1;
-    }
-
     public function add(i: int) : int {
         this.value = this.value + i;
         return this.value;
+    }
+
+    public function getptr() : Int {
+        return this;
     }
 };
 
@@ -28,10 +28,20 @@ function foo(i: Int) : int
     i.set(7); # correct
 }
 
+function test() : Int {
+    new I: Int = Int(10);
+    I.set(7);
+    return I;
+}
+
 function main()  # entry point
 {
-    new I1: Int = Int(5);
-    new I2: Int = I1;
-    foo(I2);
-    print I2.get();
+    new I: Int = Int(5);
+
+    if I.get() is 5 {
+        new a: int = 5;
+        print a;
+    }
+
+    print a;
 }

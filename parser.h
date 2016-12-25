@@ -12,6 +12,7 @@
 
 class Parser {
     Lexer *lexer;
+    std::vector<std::string> last_vars;
 
     void error(const std::string &e);
     std::shared_ptr<Node> term();

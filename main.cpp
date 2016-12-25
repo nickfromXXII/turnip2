@@ -71,9 +71,9 @@ int main(int argc, char **argv) {
 
     while (!in.eof()) {
         in.get(c);
-        code.push_back(c);
+        code.emplace_back(c);
     }
-    code.push_back(EOF);
+    code.emplace_back(EOF);
 
     try {
         Lexer *lexer = new Lexer;
