@@ -55,7 +55,7 @@ public:
         L_PARENT, R_PARENT,
         PLUS, MINUS, STAR, SLASH,
         LESS, MORE, IS, EQUAL, TYPE, SEMICOLON,
-        PRINT, INPUT,
+        PRINTLN, INPUT,
         FUNCTION, RETURN,
         COMMA, EOI
     };
@@ -80,7 +80,7 @@ public:
             {"and", AND},
             {"or", OR},
             {"not", NOT},
-            {"print", PRINT},
+            {"println", PRINTLN},
             {"input", INPUT},
             {"function", FUNCTION},
             {"return", RETURN}

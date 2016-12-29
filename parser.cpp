@@ -905,10 +905,10 @@ std::shared_ptr<Node> Parser::statement() {
 
             break;
         }
-        case Lexer::PRINT: {
+        case Lexer::PRINTLN: {
             lexer->next_token();
 
-            x = std::make_shared<Node>(Node::PRINT);
+            x = std::make_shared<Node>(Node::PRINTLN);
             x->o1 = sum();
 
             lexer->next_token();

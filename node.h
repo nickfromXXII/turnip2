@@ -30,7 +30,7 @@ public:
         DO, WHILE, REPEAT,
         NEW, INIT, DELETE,
         EMPTY, SEQ, EXPR, PROG,
-        PRINT, INPUT,
+        PRINTLN, INPUT,
         FUNCTION_DEFINE, CLASS_DEFINE
     };
 

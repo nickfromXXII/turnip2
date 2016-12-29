@@ -1449,7 +1449,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             builder->GetInsertBlock()->getParent()->addAttribute(0, Attribute::get(context, "ret"));
 
             break;
-        case Node::PRINT: { // print something TODO: migrate to call of prinf function
+        case Node::PRINTLN: { // print something TODO: migrate to call of prinf function
             if (!io_using) {
                 use_io();
             }

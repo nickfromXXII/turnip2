@@ -6,5 +6,5 @@ function main() {  # entry point
         print "a is more than 0 or a is 255";
     }
 
-    print 2+2*2; // will print 6
+    println 2+2*2; // will print 6
 }
