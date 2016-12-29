@@ -81,6 +81,30 @@ void Lexer::next_token(bool ignore) {
                 break;
             }
 
+            if (ch == '*') {
+                while (true) {
+                    getc();
+
+                    if (ch == EOF) {
+                        break;
+                    }
+
+                    if (ch == '*') {
+                        getc();
+                        if (ch == '/') {
+                            getc();
+                            break;
+                        }
+                    }
+                }
+
+                if (ch != EOF) {
+                    next_token();
+                }
+
+                break;
+            }
+
             sym = SLASH;
             break;
         case '<':
