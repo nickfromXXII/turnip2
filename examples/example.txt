@@ -30,8 +30,8 @@ function main()  # entry point
     new a: int = 123;
     new b: int;
 
-    if not a < 0 {
-        print "a is more than 0";
+    if not a < 0 or a is 255 {
+        print "a is more than 0 or a is 255";
     }
 
     /*print mul(5, 5);*/

@@ -383,6 +383,22 @@ std::shared_ptr<Node> Parser::expr() {
         x->o1 = t;
     }
 
+    if (lexer->sym == Lexer::AND) {
+        lexer->next_token();
+        t = x;
+        x = std::make_shared<Node>(Node::AND);
+        x->o1 = t;
+        x->o2 = expr();
+    }
+
+    if (lexer->sym == Lexer::OR) {
+        lexer->next_token();
+        t = x;
+        x = std::make_shared<Node>(Node::OR);
+        x->o1 = t;
+        x->o2 = expr();
+    }
+
     if (x->kind == Node::VAR || x->kind == Node::ARRAY_ACCESS || x->kind == Node::PROPERTY_ACCESS) {
         if (lexer->sym == Lexer::EQUAL) {
             t = x;

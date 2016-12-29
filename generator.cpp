@@ -637,19 +637,6 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             }
             break;
         }
-        case Node::NOT: {
-            generate(n->o1);
-            Value *val = stack.top();
-            stack.pop();
-
-            stack.push(
-                    builder->CreateXor(
-                            val,
-                            ConstantInt::get(Type::getInt1Ty(context), static_cast<uint64_t>(true))
-                    )
-            );
-            break;
-        }
         case Node::DIV: { // generate division
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
@@ -673,6 +660,43 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                 }
                 stack.emplace(builder->CreateFDiv(left, right)); // push generated division to the stack
             }
+            break;
+        }
+        case Node::AND: {
+            generate(n->o1); // generate first value
+            Value *left = stack.top(); // take it from the stack
+            stack.pop(); // erase it from the stack
+
+            generate(n->o2); // generate second value
+            Value *right = stack.top(); // take it from the stack
+            stack.pop(); // erase it from the stack
+
+            stack.push(builder->CreateAnd(left, right));
+            break;
+        }
+        case Node::OR: {
+            generate(n->o1); // generate first value
+            Value *left = stack.top(); // take it from the stack
+            stack.pop(); // erase it from the stack
+
+            generate(n->o2); // generate second value
+            Value *right = stack.top(); // take it from the stack
+            stack.pop(); // erase it from the stack
+
+            stack.push(builder->CreateOr(left, right));
+            break;
+        }
+        case Node::NOT: {
+            generate(n->o1);
+            Value *val = stack.top();
+            stack.pop();
+
+            stack.push(
+                    builder->CreateXor(
+                            val,
+                            ConstantInt::get(Type::getInt1Ty(context), static_cast<uint64_t>(true))
+                    )
+            );
             break;
         }
         case Node::LESS_TEST: { // < FIXME floating point test
