@@ -261,13 +261,31 @@ std::shared_ptr<Node> Parser::term() {
         x = paren_expr();
     }
 
+    if (lexer->sym == Lexer::STAR || lexer->sym == Lexer::SLASH) {
+        int kind = 0;
+        switch (lexer->sym) {
+            case Lexer::STAR:
+                kind = Node::MUL;
+                break;
+            case Lexer::SLASH:
+                kind = Node::DIV;
+                break;
+        }
+        lexer->next_token();
+
+        auto t = x;
+        x = std::make_shared<Node>(kind);
+        x->o1 = t;
+        x->o2 = term();
+    }
+
     return x;
 }
 
 std::shared_ptr<Node> Parser::sum() {
     std::shared_ptr<Node> t, x = term();
 
-    while (lexer->sym == Lexer::PLUS || lexer->sym == Lexer::MINUS || lexer->sym == Lexer::STAR || lexer->sym == Lexer::SLASH) {
+    while (lexer->sym == Lexer::PLUS || lexer->sym == Lexer::MINUS) {
         t = x;
 
         int kind = -1;
@@ -278,12 +296,6 @@ std::shared_ptr<Node> Parser::sum() {
             }
             case Lexer::MINUS:
                 kind = Node::SUB;
-                break;
-            case Lexer::STAR:
-                kind = Node::MUL;
-                break;
-            case Lexer::SLASH:
-                kind = Node::DIV;
                 break;
         }
         x = std::make_shared<Node>(kind);
