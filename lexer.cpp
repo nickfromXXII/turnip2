@@ -68,6 +68,19 @@ void Lexer::next_token(bool ignore) {
             break;
         case '/':
             getc();
+
+            if (ch == '/') {
+                do {
+                    getc();
+                } while (ch != EOF && ch != '\n' && ch != '\r');
+
+                if (ch != EOF) {
+                    next_token();
+                }
+
+                break;
+            }
+
             sym = SLASH;
             break;
         case '<':
@@ -107,7 +120,8 @@ void Lexer::next_token(bool ignore) {
             break;
         }
         case '#': {
-            do { getc();
+            do {
+                getc();
             } while (ch != EOF && ch != '\n' && ch != '\r');
 
             if (ch != EOF) {
