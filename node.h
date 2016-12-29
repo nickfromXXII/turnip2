@@ -25,7 +25,7 @@ public:
         LESS_IS_TEST, MORE_IS_TEST,
         IS_TEST, IS_NOT_TEST,
         SET, RETURN,
-        IF, ELSE,
+        IF, NOT, ELSE,
         DO, WHILE, REPEAT,
         NEW, INIT, DELETE,
         EMPTY, SEQ, EXPR, PROG,

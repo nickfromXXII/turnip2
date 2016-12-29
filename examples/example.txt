@@ -1,4 +1,4 @@
-function show_message()  # simple procedure which prints a message
+/*function show_message()  # simple procedure which prints a message
 {
     print "I am sample void function";
 }
@@ -23,12 +23,16 @@ function fact(n: int) : int  # simple function which uses recursion to find a fa
     if (n is 1)
         return 1;
     return n*fact(n-1);
-}
+}*/
 
 function main()  # entry point
 {
     new a: int = 123;
     new b: int;
+
+    if not a < 0 {
+        print "a is more than 0";
+    }
 
     /*print mul(5, 5);*/
 }

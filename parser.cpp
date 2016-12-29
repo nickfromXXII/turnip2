@@ -360,11 +360,28 @@ std::shared_ptr<Node> Parser::test() {
 std::shared_ptr<Node> Parser::expr() {
     std::shared_ptr<Node> t, x;
 
+    bool _not = false;
+    if (lexer->sym == Lexer::NOT) {
+        _not = true;
+        lexer->next_token();
+    }
+
     if (lexer->sym != Lexer::ID) {
-        return test();
+        if (_not) {
+            auto n = std::make_shared<Node>(Node::NOT);
+            n->o1 = test();
+            return n;
+        } else {
+            return test();
+        }
     }
 
     x = test();
+    if (_not) {
+        t = x;
+        x = std::make_shared<Node>(Node::NOT);
+        x->o1 = t;
+    }
 
     if (x->kind == Node::VAR || x->kind == Node::ARRAY_ACCESS || x->kind == Node::PROPERTY_ACCESS) {
         if (lexer->sym == Lexer::EQUAL) {

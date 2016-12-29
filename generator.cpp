@@ -637,6 +637,19 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             }
             break;
         }
+        case Node::NOT: {
+            generate(n->o1);
+            Value *val = stack.top();
+            stack.pop();
+
+            stack.push(
+                    builder->CreateXor(
+                            val,
+                            ConstantInt::get(Type::getInt1Ty(context), static_cast<uint64_t>(true))
+                    )
+            );
+            break;
+        }
         case Node::DIV: { // generate division
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
