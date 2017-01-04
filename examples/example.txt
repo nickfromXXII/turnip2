@@ -3,7 +3,7 @@ function main() {  # entry point
     new b: int;
 
     if not a < 0 or a is 255 {
-        print "a is more than 0 or a is 255";
+        println "a is more than 0 or a is 255";
     }
 
     println 2+2*2; // will print 6

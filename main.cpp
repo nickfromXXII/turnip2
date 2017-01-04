@@ -7,11 +7,54 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/IR/LegacyPassManager.h"
 
 #include <iostream>
 #include <unistd.h>
+
+class InputParser {
+public:
+    InputParser (int &argc, char **argv) {
+        if (argc == 1) {
+            show_usage();
+            exit(0);
+        }
+
+        for (int i=1; i < argc; ++i) {
+            tokens.emplace_back(std::string(argv[i]));
+        }
+    }
+
+    void show_usage() {
+        std::cout << "USAGE: turnip2 <input> [options]" << std::endl
+                << "OPTIONS:" << std::endl
+                << "\t -o <file>   write output to <file>" << std::endl
+                << "\t -S          only run compilation steps" << std::endl
+                << "\t -emit-llvm  emit LLVM IR for source inputs" << std::endl;
+    }
+
+    const std::string& get_option(const std::string &option) const {
+        std::vector<std::string>::const_iterator itr;
+        itr =  std::find(this->tokens.begin(), this->tokens.end(), option);
+        if (itr != this->tokens.end() && ++itr != this->tokens.end()){
+            return *itr;
+        }
+
+        for (auto &&token : tokens) {
+            if (token.find(option) == 0) {
+                return *new std::string(token.substr(token.find_first_of(option.back())+1));
+            }
+        }
+
+        return *new std::string("");
+    }
+
+    bool option_exists(const std::string &option) const {
+        return std::find(std::cbegin(tokens), std::cend(tokens), option) != std::cend(tokens);
+    }
+
+private:
+    std::vector<std::string> tokens;
+};
 
 void generateObject(Module *m, std::string &out) {
     InitializeNativeTarget();
@@ -39,7 +82,7 @@ void generateObject(Module *m, std::string &out) {
     m->setDataLayout(theTargetMachine->createDataLayout());
 
     std::error_code EC;
-    raw_fd_ostream dest(out + ".o", EC, sys::fs::F_None);
+    raw_fd_ostream dest((out.find('.') != std::string::npos) ? (out.substr(0, std::string(out).find_last_of('.')) + ".o") : (out + ".o"), EC, sys::fs::F_None);
 
     if (EC) {
         errs() << "Could not open file: " << EC.message();
@@ -58,12 +101,13 @@ void generateObject(Module *m, std::string &out) {
     dest.flush();
 
 #if defined(__linux__)
-    execl("/usr/bin/gcc", "/usr/bin/gcc", std::string(out + ".o").c_str(), std::string("-o" + out).c_str(), NULL);
+    execl("/usr/bin/gcc", "/usr/bin/gcc", std::string((out.find('.') != std::string::npos) ? (out.substr(0, std::string(out).find_last_of('.')) + ".o") : (out + ".o")).c_str(), std::string("-o" + out).c_str(), NULL);
 #endif
 
 }
 
 int main(int argc, char **argv) {
+    InputParser params(argc, argv);
     std::ifstream in(argv[1]);
 
     char c;
@@ -85,15 +129,22 @@ int main(int argc, char **argv) {
         Generator *generator = new Generator;
         generator->generate(ast);
 
-        generator->module->dump();
-
-
         std::string output = "a.out";
-        if (argc >= 3) {
-            output = std::string(argv[2]);
+        if (!params.get_option("-o").empty()) {
+            output = params.get_option("-o");
         }
 
-        generateObject(generator->module.get(), output);
+        if (params.option_exists("-emit-llvm")) {
+            std::string file = std::string(argv[1]).substr(0, std::string(argv[1]).find_last_of('.')) + ".s";
+            std::error_code EC;
+            raw_fd_ostream dest(file, EC, sys::fs::F_None);
+            generator->module.get()->print(dest, nullptr);
+            dest.close();
+        }
+
+        if (!params.option_exists("-S")) {
+            generateObject(generator->module.get(), output);
+        }
     }
     catch (const std::string &err) {
         std::cerr << "In file " << argv[1] << ":" << err << std::endl;
