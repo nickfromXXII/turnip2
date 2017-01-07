@@ -8,28 +8,40 @@
 #include <llvm/IR/InstrTypes.h>
 #include "generator.h"
 
-Generator::Generator() {
-    module = std::make_unique<Module>("trnp2", context);
+Generator::Generator(bool opt, bool genDI, const std::string &f) : optimize(opt), generateDI(genDI), file (f) {
+    module = std::make_unique<Module>(file, context);
     builder = std::make_unique<IRBuilder<>>(context);
 
-    passmgr = std::make_unique<legacy::FunctionPassManager>(module.get());
-    passmgr->add(createInstructionSimplifierPass());
-    passmgr->add(createInstructionCombiningPass());
-    passmgr->add(createReassociatePass());
-    passmgr->add(createDeadCodeEliminationPass());
-    passmgr->add(createDeadInstEliminationPass());
-    passmgr->add(createDeadStoreEliminationPass());
-    passmgr->add(createConstantHoistingPass());
-    passmgr->add(createLoadCombinePass());
-    passmgr->add(createAggressiveDCEPass());
-    passmgr->add(createLoopLoadEliminationPass());
-    passmgr->add(createConstantPropagationPass());
-    passmgr->add(createGVNHoistPass());
-    passmgr->add(createCFGSimplificationPass());
-    passmgr->add(createLoopSimplifyCFGPass());
-    passmgr->add(createMemCpyOptPass());
+    if (generateDI) {
+        dbuilder = std::make_unique<DIBuilder>(*module.get());
+        compileUnit = dbuilder->createCompileUnit(
+                dwarf::DW_LANG_C,
+                file,
+                ".",
+                "turnip2",
+                0,
+                "",
+                0
+        );
+    }
 
-    passmgr->doInitialization();
+    if (optimize) {
+        passmgr = std::make_unique<legacy::FunctionPassManager>(module.get());
+        passmgr->add(createInstructionSimplifierPass());
+        passmgr->add(createInstructionCombiningPass());
+        passmgr->add(createReassociatePass());
+        passmgr->add(createDeadCodeEliminationPass());
+        passmgr->add(createDeadInstEliminationPass());
+        passmgr->add(createDeadStoreEliminationPass());
+        passmgr->add(createConstantHoistingPass());
+        passmgr->add(createLoadCombinePass());
+        passmgr->add(createAggressiveDCEPass());
+        passmgr->add(createLoopLoadEliminationPass());
+        passmgr->add(createConstantPropagationPass());
+        passmgr->add(createCFGSimplificationPass());
+        passmgr->add(createMemCpyOptPass());
+        passmgr->doInitialization();
+    }
 }
 
 void Generator::use_io() {
@@ -115,7 +127,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             else { // just variable
                 last_vars.emplace_back(n->var_name);
                 switch (n->value_type) {
-                    case Node::INTEGER: // int variable
+                    case Node::INTEGER: { // int variable
                         table.emplace(
                                 n->var_name,
                                 builder->CreateAlloca(
@@ -124,8 +136,29 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                         n->var_name + "_ptr"
                                 )
                         );
+                        if (generateDI) {
+                            DILocalVariable *var = dbuilder->createAutoVariable(
+                                    lexical_blocks.back(),
+                                    n->var_name,
+                                    unit,
+                                    n->location.line,
+                                    getDebugType(Type::getInt32Ty(context))
+                            );
+                            dbuilder->insertDeclare(
+                                    table.at(n->var_name),
+                                    var,
+                                    dbuilder->createExpression(),
+                                    DebugLoc::get(
+                                            static_cast<unsigned >(n->location.line),
+                                            0,
+                                            lexical_blocks.back()
+                                    ),
+                                    builder->GetInsertBlock()
+                            );
+                        }
                         break;
-                    case Node::FLOATING: // float variable
+                    }
+                    case Node::FLOATING: { // float variable
                         table.emplace(
                                 n->var_name,
                                 builder->CreateAlloca(
@@ -134,7 +167,28 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                         n->var_name + "_ptr"
                                 )
                         );
+                        if (generateDI) {
+                            DILocalVariable *var = dbuilder->createAutoVariable(
+                                    lexical_blocks.back(),
+                                    n->var_name,
+                                    unit,
+                                    n->location.line,
+                                    getDebugType(Type::getDoubleTy(context))
+                            );
+                            dbuilder->insertDeclare(
+                                    table.at(n->var_name),
+                                    var,
+                                    dbuilder->createExpression(),
+                                    DebugLoc::get(
+                                            static_cast<unsigned >(n->location.line),
+                                            0,
+                                            lexical_blocks.back()
+                                    ),
+                                    builder->GetInsertBlock()
+                            );
+                        }
                         break;
+                    }
                     case Node::USER: // user-type variable
                         table.emplace(
                                 n->var_name,
@@ -152,7 +206,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
         case Node::INIT: { // create and initialize the variable
             last_vars.emplace_back(n->var_name);
             switch (n->value_type) {
-                case Node::INTEGER: // integer variable
+                case Node::INTEGER: { // integer variable
                     table.emplace(
                             n->var_name,
                             builder->CreateAlloca(
@@ -161,8 +215,29 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                     n->var_name + "_ptr"
                             )
                     );
+                    if (generateDI) {
+                        DILocalVariable *var = dbuilder->createAutoVariable(
+                                lexical_blocks.back(),
+                                n->var_name,
+                                unit,
+                                n->location.line,
+                                getDebugType(Type::getInt32Ty(context))
+                        );
+                        dbuilder->insertDeclare(
+                                table.at(n->var_name),
+                                var,
+                                dbuilder->createExpression(),
+                                DebugLoc::get(
+                                        static_cast<unsigned >(n->location.line),
+                                        0,
+                                        lexical_blocks.back()
+                                ),
+                                builder->GetInsertBlock()
+                        );
+                    }
                     break;
-                case Node::FLOATING: // float variable
+                }
+                case Node::FLOATING: { // float variable
                     table.emplace(
                             n->var_name,
                             builder->CreateAlloca(
@@ -171,7 +246,28 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                     n->var_name + "_ptr"
                             )
                     );
+                    if (generateDI) {
+                        DILocalVariable *var = dbuilder->createAutoVariable(
+                                lexical_blocks.back(),
+                                n->var_name,
+                                unit,
+                                n->location.line,
+                                getDebugType(Type::getDoubleTy(context))
+                        );
+                        dbuilder->insertDeclare(
+                                table.at(n->var_name),
+                                var,
+                                dbuilder->createExpression(),
+                                DebugLoc::get(
+                                        static_cast<unsigned >(n->location.line),
+                                        0,
+                                        lexical_blocks.back()
+                                ),
+                                builder->GetInsertBlock()
+                        );
+                    }
                     break;
+                }
                 case Node::USER: // user-type variable
                     table.emplace(
                             n->var_name,
@@ -186,19 +282,17 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
 
             if (n->o1->value_type == Node::USER && n->o1->kind == Node::VAR) {
                 if (n->value_type != n->o1->value_type || n->user_type != n->o1->user_type) {
-                    throw std::string("types of objects '"
-                                      + n->var_name
-                                      + "' ("
-                                      + std::string(
-                            n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int"
-                                                                                                           : "float"))
-                                      + ") and '"
-                                      + n->o1->var_name
-                                      + "' ("
-                                      + std::string(
-                            n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER
-                                                                                    ? "int" : "float"))
-                                      + ") does not match!"
+                    throw std::string(
+                            std::to_string(n->location.line)
+                            + ": types of objects '"
+                            + n->var_name
+                            + "' ("
+                            + std::string(n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int" : "float"))
+                            + ") and '"
+                            + n->o1->var_name
+                            + "' ("
+                            + std::string(n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER ? "int" : "float"))
+                            + ") does not match!"
                     );
                 }
 
@@ -210,19 +304,17 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                 );
             } else if (n->o1->value_type == Node::USER && (n->o1->kind == Node::FUNCTION_CALL || n->o1->kind == Node::METHOD_CALL)) {
                 if (n->value_type != n->o1->value_type || n->user_type != n->o1->user_type) {
-                    throw std::string("types of objects '"
-                                      + n->var_name
-                                      + "' ("
-                                      + std::string(
-                            n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int"
-                                                                                                           : "float"))
-                                      + ") and '"
-                                      + n->o1->var_name
-                                      + "' ("
-                                      + std::string(
-                            n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER
-                                                                                    ? "int" : "float"))
-                                      + ") does not match!"
+                    throw std::string(
+                            std::to_string(n->location.line)
+                            + ": types of objects '"
+                            + n->var_name
+                            + "' ("
+                            + std::string(n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int" : "float"))
+                            + ") and '"
+                            + n->o1->var_name
+                            + "' ("
+                            + std::string(n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER ? "int" : "float"))
+                            + ") does not match!"
                     );
                 }
 
@@ -264,11 +356,20 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             }
             break;
         }
-        case Node::DELETE:
+        case Node::DELETE: {
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             table.erase(n->var_name); // erase pointer from the table
             last_vars.erase(std::find(std::cbegin(last_vars), std::cend(last_vars), n->var_name));
             break;
+        }
         case Node::VAR: { // push value of the variable to the stack
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             Type *type;
 
             auto ptr = table.at(n->var_name);
@@ -307,6 +408,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::FUNC_OBJ_PROPERTY_ACCESS: {
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             Value *ptr;
 
             auto user_type = user_types.at(n->user_type);
@@ -347,6 +452,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::PROPERTY_ACCESS: {
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             Value *ptr;
             auto user_type = user_types.at(n->user_type);
             auto iter = std::find(
@@ -383,6 +492,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::FUNCTION_CALL: { // generate function's call
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             Function *callee = functions.at(n->var_name).first; // get the function's prototype
 
             if (callee->arg_size() != n->func_call_args.size()) { // check number of arguments in prototype and in calling
@@ -412,6 +525,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::METHOD_CALL: { // generate function's call
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             Function *callee = functions.at(n->property_name).first; // get the function's prototype
 
             if (n->var_name != "this" && functions.at(n->property_name).second == Node::PRIVATE) {
@@ -452,6 +569,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::FUNC_OBJ_METHOD_CALL: { // generate function's call
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             generate(n->o1);
             Value *obj = stack.top();
             stack.pop();
@@ -495,6 +616,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::OBJECT_CONSTRUCT: { // generate function's call
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             Function *callee = functions.at(n->var_name).first; // get the function's prototype
 
             if (callee->arg_size() != n->func_call_args.size() && callee->arg_size()-n->func_call_args.size()>1) { // check number of arguments in prototype and in calling
@@ -547,6 +672,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::CONST: { // generate constant value
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             switch (n->value_type) {
                 case Node::STRING: // str constant
                     stack.emplace(builder->CreateGlobalStringPtr(n->str_val));
@@ -563,6 +692,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::ADD: { // generate addition
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -588,6 +721,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::SUB: { // generate subtraction
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -613,6 +750,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::MUL: { // generate multiplication
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -638,6 +779,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::DIV: { // generate division
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -663,6 +808,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::AND: {
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -675,6 +824,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::OR: {
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -687,6 +840,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::NOT: {
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             generate(n->o1);
             Value *val = stack.top();
             stack.pop();
@@ -700,6 +857,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::LESS_TEST: { // < FIXME floating point test
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -725,6 +886,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::LESS_IS_TEST: { // <= FIXME floating point test
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -750,6 +915,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::MORE_TEST: { // > FIXME floating point test
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -775,6 +944,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::MORE_IS_TEST: { // >= FIXME floating point test
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -799,6 +972,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             }
             break;        }
         case Node::IS_TEST: { // is FIXME floating point test
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -824,6 +1001,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::IS_NOT_TEST: { // is not FIXME floating point test
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             generate(n->o1); // generate first value
             Value *left = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
@@ -849,21 +1030,25 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::SET: { // generate an update variable's or array element's value
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             if (n->o1->value_type == Node::USER && n->o1->kind == Node::VAR) {
                 if (n->value_type != n->o1->value_type || n->user_type != n->o1->user_type) {
-                    throw std::string("types of objects '"
-                                      + n->var_name
-                                      + "' ("
-                                      + std::string(
-                            n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int"
-                                                                                                           : "float"))
-                                      + ") and '"
-                                      + n->o1->var_name
-                                      + "' ("
-                                      + std::string(
-                            n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER
-                                                                                    ? "int" : "float"))
-                                      + ") does not match!"
+                    throw std::string(
+                            std::to_string(n->location.line)
+                            + ": types of objects '"
+                            + n->var_name
+                            + "' ("
+                            + std::string(
+                            n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int" : "float"))
+                            + ") and '"
+                            + n->o1->var_name
+                            + "' ("
+                            + std::string(
+                            n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER ? "int" : "float"))
+                            + ") does not match!"
                     );
                 }
 
@@ -875,19 +1060,18 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                 );
             } else if (n->o1->value_type == Node::USER && (n->o1->kind == Node::FUNCTION_CALL || n->o1->kind == Node::METHOD_CALL)) {
                 if (n->value_type != n->o1->value_type || n->user_type != n->o1->user_type) {
-                    throw std::string("types of objects '"
-                                      + n->var_name
-                                      + "' ("
-                                      + std::string(
-                            n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int"
-                                                                                                           : "float"))
-                                      + ") and '"
-                                      + n->o1->var_name
-                                      + "' ("
-                                      + std::string(
-                            n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER
-                                                                                    ? "int" : "float"))
-                                      + ") does not match!"
+                    throw std::string(
+                            std::to_string(n->location.line)
+                            + ": types of objects '"
+                            + n->var_name
+                            + "' ("
+                            + std::string(
+                            n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int" : "float"))
+                            + ") and '"
+                            + n->o1->var_name
+                            + "' ("
+                            + std::string(n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER ? "int" : "float"))
+                            + ") does not match!"
                     );
                 }
 
@@ -1036,6 +1220,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::CLASS_DEFINE: {
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             std::vector<Type *> properties_types;
             std::vector<std::string> properties_names;
             std::vector<int> properties_access;
@@ -1051,7 +1239,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                             properties_types.emplace_back(Type::getDoubleTy(context));
                             break;
                     }
-                    table.emplace(defProperty.first, builder->CreateAlloca(properties_types.back(), nullptr));
+                    //table.emplace(properties_names.back(), builder->CreateAlloca(properties_types.back()));
                 }
             }
 
@@ -1104,6 +1292,34 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                     BasicBlock *entry = BasicBlock::Create(context, "entry", func);
                     builder->SetInsertPoint(entry); // set new insert block
 
+                    DISubprogram *SP;
+                    if (generateDI) {
+                        unit = dbuilder->createFile(
+                                compileUnit->getFilename(),
+                                compileUnit->getDirectory()
+                        );
+
+                        DIScope *fcontext = unit;
+                        unsigned line = n->location.line;
+                        unsigned line_scope = 0;
+                        SP = dbuilder->createMethod(
+                                fcontext,
+                                func->getName(),
+                                StringRef(),
+                                unit,
+                                line,
+                                CreateFunctionType(args_types, unit),
+                                false,
+                                true,
+                                line_scope,
+                                DINode::FlagPrototyped,
+                                false
+                        );
+                        func->setSubprogram(SP);
+                        func_scopes[n] = SP;
+                        lexical_blocks.emplace_back(func_scopes[n]);
+                    }
+
                     unsigned long idx = 0;
                     for (auto &Arg : func->args()) { // create pointers to arguments of the function
                         std::string name = args_names.at(idx++);
@@ -1119,6 +1335,18 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                 )
                         );
                         builder->CreateStore(&Arg, table.at(name)); // store the value of argument to allocator
+                        if (generateDI) {
+                            DILocalVariable *var = dbuilder->createParameterVariable(
+                                    SP,
+                                    name,
+                                    idx,
+                                    unit,
+                                    n->location.line,
+                                    getDebugType(Arg.getType()),
+                                    true
+                            );
+                            emitLocation(n->o2);
+                        }
                     }
 
                     generate(defProperty.second.second->o2); // generate body of the function
@@ -1136,7 +1364,9 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                         }
                     }
 
-                    passmgr->run(*func); // run the optimizer
+                    if (optimize) {
+                        passmgr->run(*func); // run the optimizer
+                    }
 
                     for (auto &&var : last_vars) { // erase vars declared in this function
                         table.erase(var);
@@ -1149,13 +1379,17 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                 }
             }
 
-            for (auto &&item : properties_names) {
-                table.erase(item);
-            }
+            //for (auto &&item : properties_names) {
+            //    table.erase(item);
+            //}
 
             break;
         }
         case Node::IF: { // generate 'if' condition without 'else' branch
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             generate(n->o1); // generate condition
 
             Function *parent = builder->GetInsertBlock()->getParent();
@@ -1193,6 +1427,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::ELSE: { // generate 'if' condition with 'else' branch
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             generate(n->o1); // generate condition
 
             Function *parent = builder->GetInsertBlock()->getParent();
@@ -1243,6 +1481,11 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
         }
         case Node::DO: { // do-while cycle
             Function *parent = builder->GetInsertBlock()->getParent();
+
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             BasicBlock *loopBlock = BasicBlock::Create(context, "loop", parent);
             builder->CreateBr(loopBlock);
 
@@ -1271,6 +1514,11 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
         }
         case Node::WHILE: { // 'while' cycle
             Function *parent = builder->GetInsertBlock()->getParent();
+
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             BasicBlock *loopBlock = BasicBlock::Create(context, "loop", parent);
             builder->CreateBr(loopBlock);
 
@@ -1308,6 +1556,11 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                  table.at("index")); // zeroize the counter
 
             Function *parent = builder->GetInsertBlock()->getParent();
+
+            if (generateDI) {
+                emitLocation(n);
+            }
+
             BasicBlock *loopBlock = BasicBlock::Create(context, "loop", parent);
             builder->CreateBr(loopBlock); // go to begin of the loop
             builder->SetInsertPoint(loopBlock);
@@ -1388,7 +1641,35 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             BasicBlock *entry = BasicBlock::Create(context, "entry", func);
             builder->SetInsertPoint(entry); // set new insert block
 
-            unsigned long idx = 0;
+            DISubprogram *SP;
+            if (generateDI) {
+                unit = dbuilder->createFile(
+                        compileUnit->getFilename(),
+                        compileUnit->getDirectory()
+                );
+
+                DIScope *fcontext = unit;
+                unsigned line = n->location.line;
+                unsigned line_scope = 0;
+                SP = dbuilder->createFunction(
+                        fcontext,
+                        func->getName(),
+                        StringRef(),
+                        unit,
+                        line,
+                        CreateFunctionType(args_types, unit),
+                        false,
+                        true,
+                        line_scope,
+                        DINode::FlagPrototyped,
+                        false
+                );
+                func->setSubprogram(SP);
+                func_scopes[n] = SP;
+                lexical_blocks.emplace_back(func_scopes[n]);
+            }
+
+            unsigned idx = 0;
             for (auto &Arg : func->args()) { // create pointers to arguments of the function
                 std::string name = args_names.at(idx++);
                 Arg.setName(name);
@@ -1399,13 +1680,27 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                         builder->CreateAlloca(
                                 Arg.getType(),
                                 nullptr,
-                                name+"_ptr"
+                                name + "_ptr"
                         )
                 );
                 builder->CreateStore(&Arg, table.at(name)); // store the value of argument to allocator
-            }
 
+                if (generateDI) {
+                    DILocalVariable *var = dbuilder->createParameterVariable(
+                            SP,
+                            name,
+                            idx,
+                            unit,
+                            n->location.line,
+                            getDebugType(Arg.getType()),
+                            true
+                    );
+                    emitLocation(n->o2);
+                }
+            }
             generate(n->o2); // generate body of the function
+
+            lexical_blocks.pop_back();
 
             if (!func->getAttributes().hasAttribute(0, "ret")) {
                 switch (n->value_type) { // create default return value
@@ -1420,7 +1715,9 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                 }
             }
 
-            passmgr->run(*func); // run the optimizer
+            if (optimize) {
+                passmgr->run(*func); // run the optimizer
+            }
 
             for (auto &&var : last_vars) { // erase vars declared in this function
                 table.erase(var);
@@ -1487,8 +1784,54 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
 
             break;
         }
-        case Node::PROG:
-            generate(n->o1);
-            break;
     }
+}
+
+DIType *Generator::getDebugType(Type *ty, DIScope *scope, DIFile *file, unsigned line) {
+    if (ty->isIntegerTy(32)) {
+        return dbuilder->createBasicType("int", 32, 32, dwarf::DW_ATE_signed);
+    } else if (ty->isDoubleTy()) {
+        return dbuilder->createBasicType("float", 64, 64, dwarf::DW_ATE_float);
+    } else { // FIXME
+        return dbuilder->createClassType(
+                scope,
+                ty->getStructName(),
+                unit,
+                line,
+                256,
+                256,
+                256,
+                0,
+                nullptr,
+                nullptr
+        );
+    }
+}
+
+DISubroutineType *Generator::CreateFunctionType(std::vector<Type *> args, DIFile *Unit) {
+    std::vector<Metadata *> types;
+
+    for (auto &&type : args) {
+        types.emplace_back(getDebugType(type));
+    }
+
+    return dbuilder->createSubroutineType(dbuilder->getOrCreateTypeArray(types));
+}
+
+void Generator::emitLocation(std::shared_ptr<Node> n) {
+    DIScope *scope;
+
+    if(lexical_blocks.empty()) {
+        scope = compileUnit;
+    } else {
+        scope = lexical_blocks.back();
+    }
+
+    builder->SetCurrentDebugLocation(
+            DebugLoc::get(
+                    n->location.line,
+                    n->location.column,
+                    scope
+            )
+    );
 }

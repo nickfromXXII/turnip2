@@ -1,10 +1,19 @@
-function main() {  # entry point
-    new a: int = 123;
-    new b: int;
-
-    if not a < 0 or a is 255 {
-        println "a is more than 0 or a is 255";
+class M {
+    private a: int;
+    public function M(aa: int) {
+        this.a = aa;
     }
+};
 
-    println 2+2*2; // will print 6
+class N {
+    private a: int;
+    public function N(aa: int) {
+        this.a = aa;
+    }
+};
+
+function main(argc: int) {
+    new m: M = M(5);
+    new n: N = N(5);
+    m = n;
 }

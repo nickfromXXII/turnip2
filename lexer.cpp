@@ -20,6 +20,8 @@ void Lexer::error(const std::string &e) {
 void Lexer::getc() {
     ch = *iter;
     iter++;
+    column++;
+    location = {line, column};
 }
 
 void Lexer::next_token(bool ignore) {
@@ -28,6 +30,7 @@ void Lexer::next_token(bool ignore) {
         case '\n':
         case '\r':
             line++;
+            column = 1;
         case ' ':
             getc();
             goto again;

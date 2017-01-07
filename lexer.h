@@ -6,6 +6,7 @@
 #define TURNIP2_LEXER_H
 
 #include "type.h"
+#include "location.h"
 
 #include <vector>
 #include <fstream>
@@ -29,11 +30,14 @@ public:
     bool fn_defined(const std::string &name);
     bool type_defined(const std::string &name);
 
-    int sym{};
-    int line = 1;
+    int sym;
 
-    int int_val{};
-    double float_val{};
+    unsigned line = 1;
+    unsigned column = 1;
+    Location location;
+
+    int int_val;
+    double float_val;
     std::string str_val;
 
     std::map<std::string, std::pair<std::map<std::string, std::shared_ptr<type>>, std::map<std::string, std::shared_ptr<type>>>> types;
