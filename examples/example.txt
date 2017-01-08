@@ -1,19 +1,7 @@
-class M {
-    private a: int;
-    public function M(aa: int) {
-        this.a = aa;
-    }
-};
+function main(argc: int) : int {
+    new m: int = array of 10;
+    m[0] = 123.34;
+    println m[0];
 
-class N {
-    private a: int;
-    public function N(aa: int) {
-        this.a = aa;
-    }
-};
-
-function main(argc: int) {
-    new m: M = M(5);
-    new n: N = N(5);
-    m = n;
+    return 0;
 }

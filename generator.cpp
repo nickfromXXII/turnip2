@@ -82,7 +82,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
 
                     switch (arr->value_type) {
                         last_vars.emplace_back(n->var_name);
-                        case Node::INTEGER: // integer array
+                        case Node::INTEGER: { // integer array
                             table.emplace(
                                     n->var_name,
                                     builder->CreateAlloca(
@@ -94,8 +94,34 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                             n->var_name + "_ptr"
                                     )
                             );
+                            if (generateDI) {
+                                DILocalVariable *var = dbuilder->createAutoVariable(
+                                        lexical_blocks.back(),
+                                        n->var_name,
+                                        unit,
+                                        n->location.line,
+                                        dbuilder->createArrayType(
+                                                static_cast<unsigned>(elements_count),
+                                                table.at(n->var_name)->getPointerAlignment(module->getDataLayout()),
+                                                getDebugType(Type::getInt32Ty(context)),
+                                                nullptr
+                                        )
+                                );
+                                dbuilder->insertDeclare(
+                                        table.at(n->var_name),
+                                        var,
+                                        dbuilder->createExpression(),
+                                        DebugLoc::get(
+                                                (n->location.line),
+                                                0,
+                                                lexical_blocks.back()
+                                        ),
+                                        builder->GetInsertBlock()
+                                );
+                            }
                             break;
-                        case Node::FLOATING: // float array
+                        }
+                        case Node::FLOATING: { // float array
                             table.emplace(
                                     n->var_name,
                                     builder->CreateAlloca(
@@ -107,8 +133,34 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                             n->var_name + "_ptr"
                                     )
                             );
+                            if (generateDI) {
+                                DILocalVariable *var = dbuilder->createAutoVariable(
+                                        lexical_blocks.back(),
+                                        n->var_name,
+                                        unit,
+                                        n->location.line,
+                                        dbuilder->createArrayType(
+                                                static_cast<unsigned>(elements_count),
+                                                table.at(n->var_name)->getPointerAlignment(module->getDataLayout()),
+                                                getDebugType(Type::getDoubleTy(context)),
+                                                nullptr
+                                        )
+                                );
+                                dbuilder->insertDeclare(
+                                        table.at(n->var_name),
+                                        var,
+                                        dbuilder->createExpression(),
+                                        DebugLoc::get(
+                                                (n->location.line),
+                                                0,
+                                                lexical_blocks.back()
+                                        ),
+                                        builder->GetInsertBlock()
+                                );
+                            }
                             break;
-                        case Node::USER: // float array
+                        }
+                        case Node::USER: // user type array
                             table.emplace(
                                     n->var_name,
                                     builder->CreateAlloca(
@@ -1788,18 +1840,25 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
 }
 
 DIType *Generator::getDebugType(Type *ty, DIScope *scope, DIFile *file, unsigned line) {
+    unsigned align = module->getDataLayout().getABITypeAlignment(ty);
     if (ty->isIntegerTy(32)) {
-        return dbuilder->createBasicType("int", 32, 32, dwarf::DW_ATE_signed);
+        return dbuilder->createBasicType("int", 32, align, dwarf::DW_ATE_signed);
     } else if (ty->isDoubleTy()) {
-        return dbuilder->createBasicType("float", 64, 64, dwarf::DW_ATE_float);
-    } else { // FIXME
+        return dbuilder->createBasicType("float", 64, align, dwarf::DW_ATE_float);
+    } else if (ty->isStructTy()) { // FIXME
+        std::vector<DINode *> elements;
+        StructType *structTy = static_cast<StructType *>(ty);
+        for (auto &&item : structTy->elements()) {
+            elements.emplace_back(getDebugType(item));
+        }
+
         return dbuilder->createClassType(
                 scope,
                 ty->getStructName(),
                 unit,
                 line,
-                256,
-                256,
+                module->getDataLayout().getTypeSizeInBits(ty),
+                align,
                 256,
                 0,
                 nullptr,
@@ -1810,7 +1869,6 @@ DIType *Generator::getDebugType(Type *ty, DIScope *scope, DIFile *file, unsigned
 
 DISubroutineType *Generator::CreateFunctionType(std::vector<Type *> args, DIFile *Unit) {
     std::vector<Metadata *> types;
-
     for (auto &&type : args) {
         types.emplace_back(getDebugType(type));
     }
