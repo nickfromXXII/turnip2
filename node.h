@@ -18,7 +18,7 @@ public:
     Location location;
 
     enum node_type {
-        VAR, CONST, ARG, ARRAY_ACCESS, FUNCTION_CALL,
+        VAR_ACCESS, CONST, ARG, ARRAY_ACCESS, FUNCTION_CALL,
         OBJECT_CONSTRUCT,
         PROPERTY_ACCESS, METHOD_CALL,
         FUNC_OBJ_PROPERTY_ACCESS, FUNC_OBJ_METHOD_CALL,
@@ -31,8 +31,8 @@ public:
         IF, ELSE,
         AND, OR, NOT,
         DO, WHILE, REPEAT,
-        NEW, INIT, DELETE,
-        EMPTY, SEQ, EXPR, PROG,
+        VAR_DEF, INIT, DELETE,
+        EMPTY, SEQ, EXPR,
         PRINTLN, INPUT,
         FUNCTION_DEFINE, CLASS_DEFINE
     };

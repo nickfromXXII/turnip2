@@ -68,7 +68,7 @@ void Generator::use_io() {
 
 void Generator::generate(const std::shared_ptr<Node>& n) {
     switch(n->kind) {
-        case Node::NEW: {
+        case Node::VAR_DEF: {
             if (n->o1 != nullptr) { // new array
                 if (n->o1->kind == Node::ARRAY) {
                     std::shared_ptr<Node> arr = n->o1;
@@ -209,7 +209,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                     var,
                                     dbuilder->createExpression(),
                                     DebugLoc::get(
-                                            static_cast<unsigned >(n->location.line),
+                                            n->location.line,
                                             0,
                                             lexical_blocks.back()
                                     ),
@@ -240,7 +240,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                     var,
                                     dbuilder->createExpression(),
                                     DebugLoc::get(
-                                            static_cast<unsigned >(n->location.line),
+                                            n->location.line,
                                             0,
                                             lexical_blocks.back()
                                     ),
@@ -288,7 +288,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                 var,
                                 dbuilder->createExpression(),
                                 DebugLoc::get(
-                                        static_cast<unsigned >(n->location.line),
+                                        n->location.line,
                                         0,
                                         lexical_blocks.back()
                                 ),
@@ -319,7 +319,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                 var,
                                 dbuilder->createExpression(),
                                 DebugLoc::get(
-                                        static_cast<unsigned >(n->location.line),
+                                        n->location.line,
                                         0,
                                         lexical_blocks.back()
                                 ),
@@ -340,7 +340,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                     break;
             }
 
-            if (n->o1->value_type == Node::USER && n->o1->kind == Node::VAR) {
+            if (n->o1->value_type == Node::USER && n->o1->kind == Node::VAR_ACCESS) {
                 if (n->value_type != n->o1->value_type || n->user_type != n->o1->user_type) {
                     error(
                             n->location.line,
@@ -429,7 +429,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             last_vars.erase(std::find(std::cbegin(last_vars), std::cend(last_vars), n->var_name));
             break;
         }
-        case Node::VAR: { // push value of the variable to the stack
+        case Node::VAR_ACCESS: { // push value of the variable to the stack
             if (generateDI) {
                 emitLocation(n);
             }
@@ -1159,7 +1159,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                 emitLocation(n);
             }
 
-            if (n->o1->value_type == Node::USER && n->o1->kind == Node::VAR) {
+            if (n->o1->value_type == Node::USER && n->o1->kind == Node::VAR_ACCESS) {
                 if (n->value_type != n->o1->value_type || n->user_type != n->o1->user_type) {
                     error(n->location.line,
                           "types of objects '"
@@ -1450,7 +1450,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             std::vector<std::string> properties_names;
             std::vector<int> properties_access;
             for (auto &&defProperty : n->class_def_properties) { // generate properties first
-                if (defProperty.second.second->kind == Node::NEW) {
+                if (defProperty.second.second->kind == Node::VAR_DEF) {
                     properties_names.emplace_back(defProperty.first);
                     properties_access.emplace_back(defProperty.second.first);
                     switch (defProperty.second.second->value_type) {

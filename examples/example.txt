@@ -1,9 +1,9 @@
 function main(argc: int) : int {
-    new i: int;
+    var i: int;
     input i;
-    new j: int;
+    var j: int;
     input j;
-    new arr: int = array of i+j;
+    var arr: int = array of i+j;
     arr[j-10] = 1234;
     return 0;
 }
