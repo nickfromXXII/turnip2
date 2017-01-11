@@ -33,5 +33,5 @@ function test() : Int {
 function main()  # entry point
 {
     new I: Int = Int(5);
-    print test().value;
+    println test().value;
 }

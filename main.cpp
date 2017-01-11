@@ -19,17 +19,24 @@ public:
             exit(0);
         }
 
-        for (int i=1; i < argc; ++i) {
-            tokens.emplace_back(std::string(argv[i]));
+        for (int i = 1; i < argc; ++i) {
+            if (std::find(std::begin(supported_options), std::end(supported_options), std::string(argv[i]))
+                != std::end(supported_options) || std::string(argv[i-1]) == "-o" || i == 1) {
+                tokens.emplace_back(std::string(argv[i]));
+            } else {
+                std::cerr << "error: option '" << argv[i] << "' is not supported!" << std::endl;
+            }
         }
     }
 
     void show_usage() {
         std::cout << "USAGE: turnip2 <input> [options]" << std::endl
                 << "OPTIONS:" << std::endl
+                << "\t -g          generate source-level debug information" << std::endl
+                << "\t -emit-llvm  emit LLVM IR for source inputs" << std::endl
                 << "\t -o <file>   write output to <file>" << std::endl
-                << "\t -S          only run compilation steps" << std::endl
-                << "\t -emit-llvm  emit LLVM IR for source inputs" << std::endl;
+                << "\t -O          optimize code to reduce size and time of execution" << std::endl
+                << "\t -S          only run compilation steps" << std::endl;
     }
 
     const std::string& get_option(const std::string &option) const {
@@ -54,6 +61,13 @@ public:
 
 private:
     std::vector<std::string> tokens;
+    const std::vector<std::string> supported_options = {
+            "-g",
+            "-emit-llvm",
+            "-o",
+            "-O",
+            "-S"
+    };
 };
 
 void generateObject(Module *m, std::string &out) {
@@ -126,7 +140,12 @@ int main(int argc, char **argv) {
         Parser *parser = new Parser(lexer);
         std::shared_ptr<Node> ast = parser->parse();
 
-        Generator *generator = new Generator;
+        bool optimize = params.option_exists("-O");
+        bool generateDI = params.option_exists("-g");
+        if (optimize && generateDI)
+            generateDI = false;
+
+        Generator *generator = new Generator(optimize, generateDI, argv[1]);
         generator->generate(ast);
 
         std::string output = "a.out";
@@ -144,6 +163,10 @@ int main(int argc, char **argv) {
 
         if (!params.option_exists("-S")) {
             generateObject(generator->module.get(), output);
+
+            if (generateDI) {
+                generator->dbuilder->finalize();
+            }
         }
     }
     catch (const std::string &err) {

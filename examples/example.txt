@@ -1,10 +1,9 @@
-function main() {  # entry point
-    new a: int = 123;
-    new b: int;
-
-    if not a < 0 or a is 255 {
-        println "a is more than 0 or a is 255";
-    }
-
-    println 2+2*2; // will print 6
+function main(argc: int) : int {
+    new i: int;
+    input i;
+    new j: int;
+    input j;
+    new arr: int = array of i+j;
+    arr[j-10] = 1234;
+    return 0;
 }

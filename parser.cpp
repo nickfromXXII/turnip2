@@ -16,6 +16,7 @@ std::shared_ptr<Node> Parser::term() {
 
     if (lexer->sym == Lexer::ID) {
         x = std::make_shared<Node>(Node::VAR);
+        x->location = lexer->location;
         x->var_name = lexer->str_val;
 
         lexer->next_token();
@@ -98,6 +99,7 @@ std::shared_ptr<Node> Parser::term() {
 
     } else if (lexer->sym == Lexer::NUM_I) {
         x = std::make_shared<Node>(Node::CONST);
+        x->location = lexer->location;
         x->value_type = Node::INTEGER;
 
         x->int_val = lexer->int_val;
@@ -105,6 +107,7 @@ std::shared_ptr<Node> Parser::term() {
         lexer->next_token();
     } else if (lexer->sym == Lexer::NUM_F) {
         x = std::make_shared<Node>(Node::CONST);
+        x->location = lexer->location;
         x->value_type = Node::FLOATING;
 
         x->float_val = lexer->float_val;
@@ -112,6 +115,7 @@ std::shared_ptr<Node> Parser::term() {
         lexer->next_token();
     } else if (lexer->sym == Lexer::STR) {
         x = std::make_shared<Node>(Node::CONST);
+        x->location = lexer->location;
         x->value_type = Node::STRING;
 
         x->str_val = lexer->str_val;
@@ -119,6 +123,7 @@ std::shared_ptr<Node> Parser::term() {
         lexer->next_token();
     } else if (lexer->sym == Lexer::FUNCTION_ID) {
         x = std::make_shared<Node>(Node::FUNCTION_CALL);
+        x->location = lexer->location;
         x->value_type = lexer->functions.at(lexer->str_val)->value_type;
         x->user_type = lexer->functions.at(lexer->str_val)->user_type_name;
         x->var_name = lexer->str_val;
@@ -157,7 +162,7 @@ std::shared_ptr<Node> Parser::term() {
             std::shared_ptr<Node> t = std::move(x);
 
             x = std::make_shared<Node>(Node::FUNC_OBJ_PROPERTY_ACCESS);
-            //x->kind = Node::FUNC_OBJ_PROPERTY_ACCESS;
+            x->location = lexer->location;
             x->o1 = t;
             x->var_name = t->var_name;
             x->value_type = t->value_type;
@@ -223,6 +228,7 @@ std::shared_ptr<Node> Parser::term() {
         }
     } else if (lexer->sym == Lexer::USER_TYPE) {
         x = std::make_shared<Node>(Node::OBJECT_CONSTRUCT);
+        x->location = lexer->location;
         x->value_type = Node::USER;
         x->user_type = lexer->str_val;
         x->var_name = lexer->str_val;
@@ -275,6 +281,7 @@ std::shared_ptr<Node> Parser::term() {
 
         auto t = x;
         x = std::make_shared<Node>(kind);
+        x->location = lexer->location;
         x->o1 = t;
         x->o2 = term();
     }
@@ -299,6 +306,7 @@ std::shared_ptr<Node> Parser::sum() {
                 break;
         }
         x = std::make_shared<Node>(kind);
+        x->location = lexer->location;
 
         lexer->next_token();
 
@@ -319,11 +327,13 @@ std::shared_ptr<Node> Parser::test() {
         case Lexer::LESS: {
             t = x;
             x = std::make_shared<Node>(Node::LESS_TEST);
+            x->location = lexer->location;
 
             lexer->next_token();
 
             if (lexer->sym == Lexer::EQUAL) {
                 x = std::make_shared<Node>(Node::LESS_IS_TEST);
+                x->location = lexer->location;
                 lexer->next_token();
             }
 
@@ -335,11 +345,13 @@ std::shared_ptr<Node> Parser::test() {
         case Lexer::MORE: {
             t = x;
             x = std::make_shared<Node>(Node::MORE_TEST);
+            x->location = lexer->location;
 
             lexer->next_token();
 
             if (lexer->sym == Lexer::EQUAL) {
                 x = std::make_shared<Node>(Node::MORE_IS_TEST);
+                x->location = lexer->location;
                 lexer->next_token();
             }
 
@@ -351,11 +363,13 @@ std::shared_ptr<Node> Parser::test() {
         case Lexer::IS: {
             t = x;
             x = std::make_shared<Node>(Node::IS_TEST);
+            x->location = lexer->location;
 
             lexer->next_token();
 
             if (lexer->sym == Lexer::NOT) {
                 x = std::make_shared<Node>(Node::IS_NOT_TEST);
+                x->location = lexer->location;
                 lexer->next_token();
             }
 
@@ -381,6 +395,7 @@ std::shared_ptr<Node> Parser::expr() {
     if (lexer->sym != Lexer::ID) {
         if (_not) {
             auto n = std::make_shared<Node>(Node::NOT);
+            x->location = lexer->location;
             n->o1 = test();
             return n;
         } else {
@@ -392,6 +407,7 @@ std::shared_ptr<Node> Parser::expr() {
     if (_not) {
         t = x;
         x = std::make_shared<Node>(Node::NOT);
+        x->location = lexer->location;
         x->o1 = t;
     }
 
@@ -399,6 +415,7 @@ std::shared_ptr<Node> Parser::expr() {
         lexer->next_token();
         t = x;
         x = std::make_shared<Node>(Node::AND);
+        x->location = lexer->location;
         x->o1 = t;
         x->o2 = expr();
     }
@@ -407,6 +424,7 @@ std::shared_ptr<Node> Parser::expr() {
         lexer->next_token();
         t = x;
         x = std::make_shared<Node>(Node::OR);
+        x->location = lexer->location;
         x->o1 = t;
         x->o2 = expr();
     }
@@ -415,6 +433,7 @@ std::shared_ptr<Node> Parser::expr() {
         if (lexer->sym == Lexer::EQUAL) {
             t = x;
             x = std::make_shared<Node>(Node::SET);
+            x->location = lexer->location;
 
             lexer->next_token();
 
@@ -461,6 +480,7 @@ std::shared_ptr<Node> Parser::function_arg() {
     std::string var_name = lexer->str_val;
 
     n = std::make_shared<Node>(Node::ARG);
+    n->location = lexer->location;
     n->var_name = var_name;
 
     lexer->next_token();
@@ -543,6 +563,7 @@ std::shared_ptr<Node> Parser::statement() {
     switch (lexer->sym) {
         case Lexer::CLASS: {
             x = std::make_shared<Node>(Node::CLASS_DEFINE);
+            x->location = lexer->location;
 
             lexer->next_token(true);
             std::string class_name = lexer->str_val;
@@ -662,7 +683,7 @@ std::shared_ptr<Node> Parser::statement() {
                             user_type_name = lexer->str_val;
                             break;
                     }
-                    lexer->vars.emplace(property_name, std::make_shared<type>(property_type, user_type_name));
+                    //lexer->vars.emplace(property_name, std::make_shared<type>(property_type, user_type_name));
                     properties.emplace(property_name, std::make_shared<type>(property_type, user_type_name));
                     lexer->types[class_name] = std::make_pair(properties, methods);
 
@@ -684,6 +705,10 @@ std::shared_ptr<Node> Parser::statement() {
                         error("expected ';'");
                     }
 
+                    //for (auto &&property : x->class_def_properties) {
+                    //    lexer->vars.erase(property.first);
+                    //}
+
                     lexer->next_token();
                     break;
                 }
@@ -694,6 +719,7 @@ std::shared_ptr<Node> Parser::statement() {
         }
         case Lexer::IF: {
             x = std::make_shared<Node>(Node::IF);
+            x->location = lexer->location;
             lexer->next_token();
 
             x->o1 = expr(); //paren_expr();
@@ -729,6 +755,7 @@ std::shared_ptr<Node> Parser::statement() {
         }
         case Lexer::WHILE: {
             x = std::make_shared<Node>(Node::WHILE);
+            x->location = lexer->location;
             lexer->next_token();
 
             x->o1 = expr(); //paren_expr();
@@ -738,6 +765,7 @@ std::shared_ptr<Node> Parser::statement() {
         }
         case Lexer::DO: {
             x = std::make_shared<Node>(Node::DO);
+            x->location = lexer->location;
             lexer->next_token();
 
             x->o1 = statement();
@@ -760,6 +788,7 @@ std::shared_ptr<Node> Parser::statement() {
         }
         case Lexer::REPEAT: {
             x = std::make_shared<Node>(Node::REPEAT);
+            x->location = lexer->location;
             lexer->next_token();
 
             x->o1 = sum(); //paren_expr();
@@ -776,6 +805,7 @@ std::shared_ptr<Node> Parser::statement() {
                 error("function '" + func_name + "' is already defined");
 
             x = std::make_shared<Node>(Node::FUNCTION_DEFINE);
+            x->location = lexer->location;
             x->var_name = func_name;
 
             lexer->next_token();
@@ -818,6 +848,7 @@ std::shared_ptr<Node> Parser::statement() {
             lexer->next_token(true);
 
             x = std::make_shared<Node>(Node::NEW);
+            x->location = lexer->location;
 
             std::string var_name = lexer->str_val;
             x->var_name = var_name;
@@ -883,6 +914,7 @@ std::shared_ptr<Node> Parser::statement() {
             lexer->vars.erase(lexer->str_val);
 
             x = std::make_shared<Node>(Node::DELETE);
+            x->location = lexer->location;
             x->var_name = lexer->str_val;
 
             lexer->next_token();
@@ -893,6 +925,7 @@ std::shared_ptr<Node> Parser::statement() {
             lexer->next_token();
 
             x = std::make_shared<Node>(Node::INPUT);
+            x->location = lexer->location;
             x->var_name = lexer->str_val;
 
             lexer->next_token();
@@ -909,6 +942,7 @@ std::shared_ptr<Node> Parser::statement() {
             lexer->next_token();
 
             x = std::make_shared<Node>(Node::PRINTLN);
+            x->location = lexer->location;
             x->o1 = sum();
 
             lexer->next_token();
@@ -919,23 +953,27 @@ std::shared_ptr<Node> Parser::statement() {
             lexer->next_token();
 
             x = std::make_shared<Node>(Node::RETURN);
+            x->location = lexer->location;
             x->o1 = sum();
 
             break;
         }
         case Lexer::SEMICOLON: {
             x = std::make_shared<Node>(Node::EMPTY);
+            x->location = lexer->location;
             lexer->next_token();
 
             break;
         }
         case Lexer::L_BRACKET: {
             x = std::make_shared<Node>(Node::EMPTY);
+            x->location = lexer->location;
             lexer->next_token();
 
             while (lexer->sym != Lexer::R_BRACKET) {
                 t = x;
                 x = std::make_shared<Node>(Node::SEQ);
+                x->location = lexer->location;
 
                 x->o1 = t;
                 x->o2 = statement();
@@ -946,6 +984,7 @@ std::shared_ptr<Node> Parser::statement() {
         }
         default: {
             x = std::make_shared<Node>(Node::EXPR);
+            x->location = lexer->location;
             x->o1 = expr();
 
             if (lexer->sym == Lexer::SEMICOLON) {
@@ -963,11 +1002,13 @@ std::shared_ptr<Node> Parser::parse() {
     std::shared_ptr<Node> t, x;
 
     x = std::make_shared<Node>(Node::EMPTY);
+    x->location = lexer->location;
     lexer->next_token();
 
     while (lexer->sym != Lexer::EOI) {
         t = x;
         x = std::make_shared<Node>(Node::SEQ);
+        x->location = lexer->location;
 
         x->o1 = t;
         x->o2 = statement();
