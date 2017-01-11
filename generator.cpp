@@ -8,6 +8,10 @@
 #include <llvm/IR/InstrTypes.h>
 #include "generator.h"
 
+void Generator::error(unsigned line, const std::string &e) {
+    throw std::string(std::to_string(line) + " -> " + e);
+}
+
 Generator::Generator(bool opt, bool genDI, const std::string &f) : optimize(opt), generateDI(genDI), file (f) {
     module = std::make_unique<Module>(file, context);
     builder = std::make_unique<IRBuilder<>>(context);
@@ -71,12 +75,16 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                     generate(arr->o1);
                     Value *elements_count_val = stack.top();
                     stack.pop();
+                    array_sizes.emplace(n->var_name, elements_count_val);
 
                     // get number of elements in array
                     int64_t elements_count = 0;
                     if (llvm::ConstantInt *CI = dyn_cast<llvm::ConstantInt>(elements_count_val)) {
                         if (CI->getBitWidth() <= 32) {
                             elements_count = CI->getSExtValue();
+                            if (elements_count <= 0) {
+                                error(n->location.line, "cannot create array of negative or null elements");
+                            }
                         }
                     }
 
@@ -334,16 +342,18 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
 
             if (n->o1->value_type == Node::USER && n->o1->kind == Node::VAR) {
                 if (n->value_type != n->o1->value_type || n->user_type != n->o1->user_type) {
-                    throw std::string(
-                            std::to_string(n->location.line)
-                            + ": types of objects '"
+                    error(
+                            n->location.line,
+                            "types of objects '"
                             + n->var_name
                             + "' ("
-                            + std::string(n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int" : "float"))
+                            + std::string(
+                                    n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int" : "float"))
                             + ") and '"
                             + n->o1->var_name
                             + "' ("
-                            + std::string(n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER ? "int" : "float"))
+                            + std::string(
+                                    n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER ? "int" : "float"))
                             + ") does not match!"
                     );
                 }
@@ -356,16 +366,18 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                 );
             } else if (n->o1->value_type == Node::USER && (n->o1->kind == Node::FUNCTION_CALL || n->o1->kind == Node::METHOD_CALL)) {
                 if (n->value_type != n->o1->value_type || n->user_type != n->o1->user_type) {
-                    throw std::string(
-                            std::to_string(n->location.line)
-                            + ": types of objects '"
+                    error(
+                            n->location.line,
+                            "types of objects '"
                             + n->var_name
                             + "' ("
-                            + std::string(n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int" : "float"))
+                            + std::string(
+                                    n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int" : "float"))
                             + ") and '"
                             + n->o1->var_name
                             + "' ("
-                            + std::string(n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER ? "int" : "float"))
+                            + std::string(
+                                    n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER ? "int" : "float"))
                             + ") does not match!"
                     );
                 }
@@ -475,7 +487,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             int property_access = user_type.second.second.at(static_cast<unsigned>(std::distance(std::begin(user_type.second.first), iter)));
 
             if (property_access == Node::PRIVATE) {
-                throw std::string(" property '" + n->property_name + "' of object '" + n->var_name + "' is private");
+                error(n->location.line, "property '" + n->property_name + "' of object '" + n->var_name + "' is private");
             }
 
             generate(n->o1);
@@ -518,7 +530,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             int property_access = user_type.second.second.at(static_cast<unsigned>(std::distance(std::begin(user_type.second.first), iter)));
 
             if (n->var_name != "this" && property_access == Node::PRIVATE) {
-                throw std::string(" property '" + n->property_name + "' of object '" + n->var_name + "' is private");
+                error(n->location.line, "property '" + n->property_name + "' of object '" + n->var_name + "' is private");
             }
 
             Value* src = table.at(n->var_name);
@@ -551,8 +563,9 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             Function *callee = functions.at(n->var_name).first; // get the function's prototype
 
             if (callee->arg_size() != n->func_call_args.size()) { // check number of arguments in prototype and in calling
-                throw std::string(
-                        "Invalid number arguments (" +
+                error(
+                        n->location.line,
+                        "invalid number arguments (" +
                         std::to_string(n->func_call_args.size()) +
                         ") , expected " +
                         std::to_string(callee->arg_size())
@@ -584,12 +597,13 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             Function *callee = functions.at(n->property_name).first; // get the function's prototype
 
             if (n->var_name != "this" && functions.at(n->property_name).second == Node::PRIVATE) {
-                throw std::string(" method '" + n->property_name + "' of object '" + n->var_name + "' is private");
+                error(n->location.line, "method '" + n->property_name + "' of object '" + n->var_name + "' is private");
             }
 
             if (callee->arg_size() != n->func_call_args.size() && callee->arg_size()-n->func_call_args.size()>1) { // check number of arguments in prototype and in calling
-                throw std::string(
-                        " Invalid number arguments (" +
+                error(
+                        n->location.line,
+                        "invalid number arguments (" +
                         std::to_string(n->func_call_args.size()) +
                         "), expected " +
                         std::to_string(callee->arg_size())
@@ -632,12 +646,13 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             Function *callee = functions.at(n->property_name).first; // get the function's prototype
 
             if (n->var_name != "this" && functions.at(n->property_name).second == Node::PRIVATE) {
-                throw std::string(" method '" + n->property_name + "' of object returned by function '" + n->var_name + "' is private");
+                error(n->location.line, "method '" + n->property_name + "' of object returned by function '" + n->var_name + "' is private");
             }
 
             if (callee->arg_size() != n->func_call_args.size() && callee->arg_size()-n->func_call_args.size()>1) { // check number of arguments in prototype and in calling
-                throw std::string(
-                        " Invalid number arguments (" +
+                error(
+                        n->location.line,
+                        "invalid number arguments (" +
                         std::to_string(n->func_call_args.size()) +
                         "), expected " +
                         std::to_string(callee->arg_size())
@@ -675,8 +690,9 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             Function *callee = functions.at(n->var_name).first; // get the function's prototype
 
             if (callee->arg_size() != n->func_call_args.size() && callee->arg_size()-n->func_call_args.size()>1) { // check number of arguments in prototype and in calling
-                throw std::string(
-                        " Invalid number arguments (" +
+                error(
+                        n->location.line,
+                        "invalid number arguments (" +
                         std::to_string(n->func_call_args.size()) +
                         "), expected " +
                         std::to_string(callee->arg_size())
@@ -704,8 +720,65 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
         }
         case Node::ARRAY_ACCESS: { // generate access to array's element
             generate(n->o1); // get number of element to access
-            Value *elements_count_val = stack.top(); // take it from the stack
+            Value *element_val = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
+
+            // get number of elements in array
+            int64_t element_num = 0;
+            if (llvm::ConstantInt *CI = dyn_cast<llvm::ConstantInt>(element_val)) {
+                if (CI->getBitWidth() <= 32) {
+                    element_num = CI->getSExtValue();
+                }
+            }
+
+            int64_t array_size = 0;
+            if (llvm::ConstantInt *CI = dyn_cast<llvm::ConstantInt>(array_sizes.at(n->var_name))) {
+                if (CI->getBitWidth() <= 32) {
+                    array_size = CI->getSExtValue();
+                }
+            }
+
+            if (element_num >= array_size && array_size != 0) {
+                error(n->location.line, "array '" + n->var_name + "' has only " + std::to_string(array_size) + " elements");
+            }
+
+
+            // runtime check of accessing element
+            Value *cond = builder->CreateICmpSGE(
+                    element_val,
+                    array_sizes.at(n->var_name)
+            );
+            Function *parent = builder->GetInsertBlock()->getParent();
+            BasicBlock *thenBlock = BasicBlock::Create(context, "then", parent); // create blocks
+            BasicBlock *elseBlock = BasicBlock::Create(context, "else");
+            BasicBlock *mergeBlock = BasicBlock::Create(context, "ifcont");
+
+            builder->CreateCondBr(cond, thenBlock, elseBlock); // create conditional goto
+            builder->SetInsertPoint(thenBlock);
+
+            if (!io_using) {
+                use_io();
+            }
+            std::vector<Value*> args;
+            args.emplace_back(table.at("str_out_format"));
+            args.emplace_back(
+                    builder->CreateGlobalStringPtr(
+                            "Runtime error: accessing unallocated element of array '" + n->var_name + "'"
+                    )
+            );
+            builder->CreateCall(printf, args); // call prinf
+            std::vector<Type *> exitArgs = { Type::getInt32Ty(context) };
+            FunctionType *exitType = FunctionType::get(Type::getVoidTy(context), exitArgs, false);
+            Constant *exit = module->getOrInsertFunction("exit", exitType);
+            builder->CreateCall(exit, ConstantInt::get(Type::getInt32Ty(context), 1));
+
+            builder->CreateBr(mergeBlock);
+            parent->getBasicBlockList().push_back(elseBlock);
+            builder->SetInsertPoint(elseBlock);
+            builder->CreateBr(mergeBlock);
+            parent->getBasicBlockList().push_back(mergeBlock);
+            builder->SetInsertPoint(mergeBlock); // set insert point to block after the condition
+
 
             Value *arr_ptr = table.at(n->var_name); // get array's pointer
             stack.emplace(
@@ -714,7 +787,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                     arr_ptr,
                                     {
                                             ConstantInt::get(Type::getInt32Ty(context), 0),
-                                            elements_count_val
+                                            element_val
                                     },
                                     n->var_name
                             ),
@@ -1088,19 +1161,18 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
 
             if (n->o1->value_type == Node::USER && n->o1->kind == Node::VAR) {
                 if (n->value_type != n->o1->value_type || n->user_type != n->o1->user_type) {
-                    throw std::string(
-                            std::to_string(n->location.line)
-                            + ": types of objects '"
-                            + n->var_name
-                            + "' ("
-                            + std::string(
-                            n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int" : "float"))
-                            + ") and '"
-                            + n->o1->var_name
-                            + "' ("
-                            + std::string(
-                            n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER ? "int" : "float"))
-                            + ") does not match!"
+                    error(n->location.line,
+                          "types of objects '"
+                          + n->var_name
+                          + "' ("
+                          + std::string(
+                                  n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int" : "float"))
+                          + ") and '"
+                          + n->o1->var_name
+                          + "' ("
+                          + std::string(
+                                  n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER ? "int" : "float"))
+                          + ") does not match!"
                     );
                 }
 
@@ -1112,18 +1184,18 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                 );
             } else if (n->o1->value_type == Node::USER && (n->o1->kind == Node::FUNCTION_CALL || n->o1->kind == Node::METHOD_CALL)) {
                 if (n->value_type != n->o1->value_type || n->user_type != n->o1->user_type) {
-                    throw std::string(
-                            std::to_string(n->location.line)
-                            + ": types of objects '"
-                            + n->var_name
-                            + "' ("
-                            + std::string(
-                            n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int" : "float"))
-                            + ") and '"
-                            + n->o1->var_name
-                            + "' ("
-                            + std::string(n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER ? "int" : "float"))
-                            + ") does not match!"
+                    error(n->location.line,
+                          "types of objects '"
+                          + n->var_name
+                          + "' ("
+                          + std::string(
+                                  n->value_type == Node::USER ? (n->user_type) : (n->value_type == Node::INTEGER ? "int" : "float"))
+                          + ") and '"
+                          + n->o1->var_name
+                          + "' ("
+                          + std::string(
+                                  n->o1->value_type == Node::USER ? (n->o1->user_type) : (n->o1->value_type == Node::INTEGER ? "int" : "float"))
+                          + ") does not match!"
                     );
                 }
 
@@ -1153,15 +1225,113 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
 
                 if (n->o2 != nullptr) { // change value of array's element
                     generate(n->o2); // generate the number of element
-                    Value *elements_count_val = stack.top(); // take it from the stack
+                    Value *element_val = stack.top(); // take it from the stack
                     stack.pop(); // erase it from the stack
 
+
+                    // get number of elements in array
+                    bool constant = false;
+                    int64_t element_num = 0;
+                    if (llvm::ConstantInt *CI = dyn_cast<llvm::ConstantInt>(element_val)) {
+                        if (CI->getBitWidth() <= 32) {
+                            element_num = CI->getSExtValue();
+                        }
+                    } else {
+                        Value *cond = builder->CreateOr(
+                                builder->CreateICmpSGE(
+                                        element_val,
+                                        array_sizes.at(n->var_name)
+                                ),
+                                builder->CreateICmpSLT(
+                                        element_val,
+                                        ConstantInt::get(Type::getInt32Ty(context), 0)
+                                )
+                        );
+                        Function *parent = builder->GetInsertBlock()->getParent();
+                        BasicBlock *thenBlock = BasicBlock::Create(context, "then", parent); // create blocks
+                        BasicBlock *elseBlock = BasicBlock::Create(context, "else");
+                        BasicBlock *mergeBlock = BasicBlock::Create(context, "ifcont");
+
+                        builder->CreateCondBr(cond, thenBlock, elseBlock); // create conditional goto
+                        builder->SetInsertPoint(thenBlock);
+
+                        if (!io_using) {
+                            use_io();
+                        }
+                        std::vector<Value *> args;
+                        args.emplace_back(table.at("str_out_format"));
+                        args.emplace_back(
+                                builder->CreateGlobalStringPtr(
+                                        "Runtime error: accessing unallocated element of array '" + n->var_name + "'"
+                                )
+                        );
+                        builder->CreateCall(printf, args); // call prinf
+                        std::vector<Type *> exitArgs = {Type::getInt32Ty(context)};
+                        FunctionType *exitType = FunctionType::get(Type::getVoidTy(context), exitArgs, false);
+                        Constant *exit = module->getOrInsertFunction("exit", exitType);
+                        builder->CreateCall(exit, ConstantInt::get(Type::getInt32Ty(context), 1));
+
+                        builder->CreateBr(mergeBlock);
+                        parent->getBasicBlockList().push_back(elseBlock);
+                        builder->SetInsertPoint(elseBlock);
+                        builder->CreateBr(mergeBlock);
+                        parent->getBasicBlockList().push_back(mergeBlock);
+                        builder->SetInsertPoint(mergeBlock); // set insert point to block after the condition
+                    }
+
+                    int64_t array_size = 0;
+                    if (llvm::ConstantInt *CI = dyn_cast<llvm::ConstantInt>(array_sizes.at(n->var_name))) {
+                        if (CI->getBitWidth() <= 32) {
+                            array_size = CI->getSExtValue();
+                            if (element_num >= array_size) { // number of array's elements and accessing elemnt are constant
+                                error(n->location.line, "array '" + n->var_name + "' has only " + std::to_string(array_size) + " elements");
+                            }
+                        }
+                    } else { // array of non-constant number of items
+                        // runtime check of accessing element
+                        Value *cond = builder->CreateICmpSGE(
+                                element_val,
+                                array_sizes.at(n->var_name)
+                        );
+                        Function *parent = builder->GetInsertBlock()->getParent();
+                        BasicBlock *thenBlock = BasicBlock::Create(context, "then", parent); // create blocks
+                        BasicBlock *elseBlock = BasicBlock::Create(context, "else");
+                        BasicBlock *mergeBlock = BasicBlock::Create(context, "ifcont");
+
+                        builder->CreateCondBr(cond, thenBlock, elseBlock); // create conditional goto
+                        builder->SetInsertPoint(thenBlock);
+
+                        if (!io_using) {
+                            use_io();
+                        }
+                        std::vector<Value *> args;
+                        args.emplace_back(table.at("str_out_format"));
+                        args.emplace_back(
+                                builder->CreateGlobalStringPtr(
+                                        "Runtime error: accessing unallocated element of array '" + n->var_name + "'"
+                                )
+                        );
+                        builder->CreateCall(printf, args); // call prinf
+                        std::vector<Type *> exitArgs = {Type::getInt32Ty(context)};
+                        FunctionType *exitType = FunctionType::get(Type::getVoidTy(context), exitArgs, false);
+                        Constant *exit = module->getOrInsertFunction("exit", exitType);
+                        builder->CreateCall(exit, ConstantInt::get(Type::getInt32Ty(context), 1));
+
+                        builder->CreateBr(mergeBlock);
+                        parent->getBasicBlockList().push_back(elseBlock);
+                        builder->SetInsertPoint(elseBlock);
+                        builder->CreateBr(mergeBlock);
+                        parent->getBasicBlockList().push_back(mergeBlock);
+                        builder->SetInsertPoint(mergeBlock); // set insert point to block after the condition
+                    }
+
+                    // all is ok
                     Value *arr_ptr = table.at(n->var_name); // get array's pointer
                     Value *el_ptr = builder->CreateGEP( // get element's pointer
                             arr_ptr,
                             {
                                     ConstantInt::get(Type::getInt32Ty(context), 0),
-                                    elements_count_val
+                                    element_val
                             },
                             n->var_name
                     );
@@ -1195,7 +1365,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                     int property_access = user_type.second.second.at(static_cast<unsigned>(std::distance(std::begin(user_type.second.first),iter)));
 
                     if (n->var_name != "this" && property_access == Node::PRIVATE) {
-                        throw std::string(" property '" + n->property_name + "' of object '" + n->var_name + "' is private");
+                        error(n->location.line, "property '" + n->property_name + "' of object '" + n->var_name + "' is private");
                     }
 
                     Value* src = table.at(n->var_name);

@@ -1,7 +1,9 @@
 function main(argc: int) : int {
-    new m: int = array of 10;
-    m[0] = 123.34;
-    println m[0];
-
+    new i: int;
+    input i;
+    new j: int;
+    input j;
+    new arr: int = array of i+j;
+    arr[j-10] = 1234;
     return 0;
 }

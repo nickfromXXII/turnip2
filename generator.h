@@ -24,10 +24,12 @@
 using namespace llvm;
 
 class Generator {
+    void error(unsigned line, const std::string &e);
     std::string file;
 
     std::map<std::string, std::pair<StructType *, std::pair<std::vector<std::string>, std::vector<int>>>> user_types;
     std::map<std::string, Value *> table;
+    std::map<std::string, Value *> array_sizes;
     std::map<std::string, std::pair<Function *, int>> functions;
     LLVMContext context;
     std::vector<std::string> last_vars;
@@ -40,19 +42,17 @@ class Generator {
 
     std::vector<Type*> printfArgs;
     FunctionType *printfType;
-    Constant *printf{};
+    Constant *printf;
 
     std::vector<Type*> scanfArgs;
     FunctionType *scanfType;
-    Constant *scanf{};
+    Constant *scanf;
 
     bool io_using = false;
     void use_io();
 
     bool generateDI;
     DICompileUnit *compileUnit;
-    DIType *floatTy;
-    DIType *intTy;
 
     DIType *getDebugType(Type *ty, DIScope *scope = nullptr, DIFile *file = nullptr, unsigned line = 0);
     std::vector<DIScope *> lexical_blocks;
