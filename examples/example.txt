@@ -1,6 +1,9 @@
-function main()  # entry point
-{
-    new str: string = array  of 2;
-    str[0] = "h";
-    print str[0];
+function main(argc: int) : int {
+    var i: int;
+    input i;
+    var j: int;
+    input j;
+    var arr: int = array of i+j;
+    arr[j-10] = 1234;
+    return 0;
 }

@@ -3,12 +3,12 @@ project(turnip2)
 
 find_package(LLVM REQUIRED CONFIG)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
-set(SOURCE_FILES main.cpp lexer.cpp lexer.h parser.cpp parser.h node.h generator.cpp generator.h)
+set(SOURCE_FILES main.cpp lexer.cpp lexer.h parser.cpp parser.h node.h generator.cpp generator.h type.h location.h)
 add_executable(turnip2 ${SOURCE_FILES})
 
 set(LIBS
