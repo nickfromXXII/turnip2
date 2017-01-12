@@ -19,9 +19,11 @@ class Parser {
     std::shared_ptr<Node> sum();
     std::shared_ptr<Node> test();
     std::shared_ptr<Node> expr();
-    std::shared_ptr<Node> function_arg();
     std::shared_ptr<Node> paren_expr();
+    std::shared_ptr<Node> var_def(bool isClassProperty = false);
+    std::shared_ptr<Node> function_arg();
     std::shared_ptr<Node> function_args();
+    std::shared_ptr<Node> function_def();
     std::shared_ptr<Node> statement();
 
 public:

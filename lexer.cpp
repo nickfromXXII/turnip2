@@ -20,6 +20,8 @@ void Lexer::error(const std::string &e) {
 void Lexer::getc() {
     ch = *iter;
     iter++;
+    column++;
+    location = {line, column};
 }
 
 void Lexer::next_token(bool ignore) {
@@ -28,6 +30,7 @@ void Lexer::next_token(bool ignore) {
         case '\n':
         case '\r':
             line++;
+            column = 1;
         case ' ':
             getc();
             goto again;
@@ -68,6 +71,43 @@ void Lexer::next_token(bool ignore) {
             break;
         case '/':
             getc();
+
+            if (ch == '/') {
+                do {
+                    getc();
+                } while (ch != EOF && ch != '\n' && ch != '\r');
+
+                if (ch != EOF) {
+                    next_token();
+                }
+
+                break;
+            }
+
+            if (ch == '*') {
+                while (true) {
+                    getc();
+
+                    if (ch == EOF) {
+                        break;
+                    }
+
+                    if (ch == '*') {
+                        getc();
+                        if (ch == '/') {
+                            getc();
+                            break;
+                        }
+                    }
+                }
+
+                if (ch != EOF) {
+                    next_token();
+                }
+
+                break;
+            }
+
             sym = SLASH;
             break;
         case '<':
@@ -107,7 +147,8 @@ void Lexer::next_token(bool ignore) {
             break;
         }
         case '#': {
-            do { getc();
+            do {
+                getc();
             } while (ch != EOF && ch != '\n' && ch != '\r');
 
             if (ch != EOF) {

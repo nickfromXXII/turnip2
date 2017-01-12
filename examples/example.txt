@@ -1,34 +1,9 @@
-function show_message()  # simple procedure which prints a message
-{
-    print "I am sample void function";
-}
-
-function mul(a: int, b: int) : int  # simple function which returns a product of two integers
-{
-    return a*b;
-}
-
-function iadd(a: int, b: int) : int  # simple function which returns a sum of two integers
-{
-    return a+b;
-}
-
-function fadd(a: float, b: float) : float  # simple function which returns a sum of two doubles
-{
-    return a+b;
-}
-
-function fact(n: int) : int  # simple function which uses recursion to find a factorial of given integer
-{
-    if (n is 1)
-        return 1;
-    return n*fact(n-1);
-}
-
-function main()  # entry point
-{
-    new a: int = 123;
-    new b: int;
-
-    print mul(5, 5);
+function main(argc: int) : int {
+    var i: int;
+    input i;
+    var j: int;
+    input j;
+    var arr: int = array of i+j;
+    arr[j-10] = 1234;
+    return 0;
 }

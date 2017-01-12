@@ -6,6 +6,7 @@
 #define TURNIP2_NODE_H
 
 #include "type.h"
+#include "location.h"
 #include <memory>
 #include <memory>
 #include <string>
@@ -14,8 +15,10 @@ class Node {
 public:
     explicit Node(int k) { kind = k; }
 
+    Location location;
+
     enum node_type {
-        VAR, CONST, ARG, ARRAY_ACCESS, FUNCTION_CALL,
+        VAR_ACCESS, CONST, ARG, ARRAY_ACCESS, FUNCTION_CALL,
         OBJECT_CONSTRUCT,
         PROPERTY_ACCESS, METHOD_CALL,
         FUNC_OBJ_PROPERTY_ACCESS, FUNC_OBJ_METHOD_CALL,
@@ -26,10 +29,11 @@ public:
         IS_TEST, IS_NOT_TEST,
         SET, RETURN,
         IF, ELSE,
+        AND, OR, NOT,
         DO, WHILE, REPEAT,
-        NEW, INIT, DELETE,
-        EMPTY, SEQ, EXPR, PROG,
-        PRINT, INPUT,
+        VAR_DEF, INIT, DELETE,
+        EMPTY, SEQ, EXPR,
+        PRINTLN, INPUT,
         FUNCTION_DEFINE, CLASS_DEFINE
     };
 
