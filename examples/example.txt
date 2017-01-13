@@ -1,9 +1,16 @@
-function main(argc: int) : int {
-    var i: int;
-    input i;
-    var j: int;
-    input j;
-    var arr: int = array of i+j;
-    arr[j-10] = 1234;
-    return 0;
+function bar() : string {
+    return "bar";
+}
+
+function main() : int {
+    var foo: string = "foo";
+    var b: bool = foo is "foo";
+
+    if (b) {
+        println foo + bar();
+    }
+
+    if (foo + bar() >= "foo") {
+        println bar();
+    }
 }

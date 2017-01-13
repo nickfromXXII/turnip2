@@ -121,6 +121,22 @@ std::shared_ptr<Node> Parser::term() {
         x->str_val = lexer->str_val;
 
         lexer->next_token();
+    } else if (lexer->sym == Lexer::TRUE) {
+        x = std::make_shared<Node>(Node::CONST);
+        x->location = lexer->location;
+        x->value_type = Node::BOOL;
+
+        x->int_val = true;
+
+        lexer->next_token();
+    } else if (lexer->sym == Lexer::FALSE) {
+        x = std::make_shared<Node>(Node::CONST);
+        x->location = lexer->location;
+        x->value_type = Node::BOOL;
+
+        x->int_val = false;
+
+        lexer->next_token();
     } else if (lexer->sym == Lexer::FUNCTION_ID) {
         x = std::make_shared<Node>(Node::FUNCTION_CALL);
         x->location = lexer->location;
@@ -486,7 +502,9 @@ std::shared_ptr<Node> Parser::var_def(bool isClassProperty) {
     }
 
     lexer->next_token();
-    if (lexer->sym != Lexer::INT && lexer->sym != Lexer::FLOAT && lexer->sym != Lexer::USER_TYPE) {
+    if (lexer->sym != Lexer::INT && lexer->sym != Lexer::FLOAT
+        && lexer->sym != Lexer::STRING && lexer->sym != Lexer::BOOL
+        && lexer->sym != Lexer::USER_TYPE) {
         error("expected variable type");
     }
 
@@ -496,6 +514,12 @@ std::shared_ptr<Node> Parser::var_def(bool isClassProperty) {
             break;
         case Lexer::FLOAT:
             x->value_type = Node::FLOATING;
+            break;
+        case Lexer::STRING:
+            x->value_type = Node::STRING;
+            break;
+        case Lexer::BOOL:
+            x->value_type = Node::BOOL;
             break;
         case Lexer::USER_TYPE:
             x->value_type = Node::USER;
@@ -528,7 +552,7 @@ std::shared_ptr<Node> Parser::var_def(bool isClassProperty) {
                 lexer->arrays.emplace(var_name, std::make_shared<type>(x->value_type, x->user_type));
             } else {
                 x->kind = Node::INIT;
-                x->o1 = sum();
+                x->o1 = expr();
             }
         }
         lexer->vars.emplace(var_name, std::make_shared<type>(x->value_type, x->user_type));
@@ -558,7 +582,9 @@ std::shared_ptr<Node> Parser::function_arg() {
     }
 
     lexer->next_token();
-    if (lexer->sym != Lexer::INT && lexer->sym != Lexer::FLOAT && lexer->sym != Lexer::USER_TYPE) {
+    if (lexer->sym != Lexer::INT && lexer->sym != Lexer::FLOAT
+        && lexer->sym != Lexer::STRING && lexer->sym != Lexer::BOOL
+        && lexer->sym != Lexer::USER_TYPE) {
         std::cout << lexer->sym << std::endl;
         error("expected variable type");
     }
@@ -569,6 +595,12 @@ std::shared_ptr<Node> Parser::function_arg() {
             break;
         case Lexer::FLOAT:
             n->value_type = Node::FLOATING;
+            break;
+        case Lexer::STRING:
+            n->value_type = Node::STRING;
+            break;
+        case Lexer::BOOL:
+            n->value_type = Node::BOOL;
             break;
         case Lexer::USER_TYPE:
             n->value_type = Node::USER;
@@ -644,7 +676,9 @@ std::shared_ptr<Node> Parser::function_def() {
     } else {
         lexer->next_token();
 
-        if (lexer->sym != Lexer::INT && lexer->sym != Lexer::FLOAT && lexer->sym != Lexer::USER_TYPE) {
+        if (lexer->sym != Lexer::INT && lexer->sym != Lexer::FLOAT
+            && lexer->sym != Lexer::STRING && lexer->sym != Lexer::BOOL
+            && lexer->sym != Lexer::USER_TYPE) {
             error("expected type of return value");
         }
 
@@ -654,6 +688,12 @@ std::shared_ptr<Node> Parser::function_def() {
                 break;
             case Lexer::FLOAT:
                 x->value_type = Node::FLOATING;
+                break;
+            case Lexer::STRING:
+                x->value_type = Node::STRING;
+                break;
+            case Lexer::BOOL:
+                x->value_type = Node::BOOL;
                 break;
             case Lexer::USER_TYPE:
                 x->value_type = Node::USER;
