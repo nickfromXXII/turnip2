@@ -2244,6 +2244,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::FUNCTION_DEFINE: { // generate function's definition
+            if (n->var_name == "main") {
+                n->value_type = Node::INTEGER;
+            }
+
             FunctionType *type;
 
             // generate arguments
