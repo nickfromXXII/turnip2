@@ -2191,10 +2191,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::REPEAT: { // 'repeat' cycle FIXME
-            if (table.count("index") == 0)
-            {
-                table.emplace("index", builder->CreateAlloca(Type::getInt32Ty(context), nullptr, "index_ptr"));
-            }
+            table.try_emplace("index", builder->CreateAlloca(Type::getInt32Ty(context), nullptr, "index_ptr"));
 
             builder->CreateStore(ConstantInt::get(Type::getInt32Ty(context), APInt(32, 0)),
                                  table.at("index")); // zeroize the counter

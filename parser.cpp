@@ -869,6 +869,7 @@ std::shared_ptr<Node> Parser::statement() {
             lexer->next_token();
 
             x->o1 = sum(); //paren_expr();
+            lexer->vars.try_emplace("index", std::make_shared<type>(Node::INTEGER, ""));
             x->o2 = statement();
 
             break;

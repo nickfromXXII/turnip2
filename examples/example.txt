@@ -1,16 +1,11 @@
-function bar() : string {
-    return "bar";
-}
+function main() {
+    var arr: int = array of 10;
 
-function main() : int {
-    var foo: string = "foo";
-    var b: bool = foo is "foo";
-
-    if (b) {
-        println foo + bar();
+    repeat 10 {
+        arr[index] = index;
     }
 
-    if (foo + bar() >= "foo") {
-        println bar();
+    repeat 10 {
+        println arr[index];
     }
 }
