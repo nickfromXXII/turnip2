@@ -30,7 +30,7 @@ std::shared_ptr<Node> Parser::term() {
 
             if (lexer->sym != Lexer::R_ACCESS) {
                 std::cerr << lexer->sym << std::endl;
-                error("Expected ']'");
+                error("expected ']'");
             }
 
             lexer->next_token();
@@ -557,6 +557,11 @@ std::shared_ptr<Node> Parser::var_def(bool isClassProperty) {
         }
         lexer->vars.emplace(var_name, std::make_shared<type>(x->value_type, x->user_type));
     }
+
+    if (lexer->sym != Lexer::SEMICOLON) {
+        error("expected ';'");
+    }
+
     return x;
 }
 
@@ -578,7 +583,7 @@ std::shared_ptr<Node> Parser::function_arg() {
     lexer->next_token();
     if (lexer->sym != Lexer::TYPE) {
         std::cout << lexer->sym << std::endl;
-        error("expected type keyword");
+        error("expected argument type");
     }
 
     lexer->next_token();
@@ -586,7 +591,7 @@ std::shared_ptr<Node> Parser::function_arg() {
         && lexer->sym != Lexer::STRING && lexer->sym != Lexer::BOOL
         && lexer->sym != Lexer::USER_TYPE) {
         std::cout << lexer->sym << std::endl;
-        error("expected variable type");
+        error("expected argument type");
     }
 
     switch (lexer->sym) {
@@ -701,8 +706,8 @@ std::shared_ptr<Node> Parser::function_def() {
                 break;
         }
         lexer->next_token();
-        lexer->functions.emplace(func_name, std::make_shared<type>(x->value_type, x->user_type));
     }
+    lexer->functions.emplace(func_name, std::make_shared<type>(x->value_type, x->user_type));
 
     x->o2 = statement();
 
@@ -848,7 +853,7 @@ std::shared_ptr<Node> Parser::statement() {
             x->o1 = statement();
 
             if (lexer->sym != Lexer::WHILE) {
-                error("'while' expected");
+                error("expected 'while'");
             }
 
             lexer->next_token();
@@ -856,7 +861,7 @@ std::shared_ptr<Node> Parser::statement() {
             x->o2 = expr(); //paren_expr();
 
             if (lexer->sym != Lexer::SEMICOLON) {
-                error("';' expected");
+                error("expected ';'");
             }
 
             lexer->next_token();
@@ -905,7 +910,7 @@ std::shared_ptr<Node> Parser::statement() {
             lexer->next_token();
 
             if (lexer->sym != Lexer::SEMICOLON) {
-                error("';' expected");
+                error("expected ';'");
             }
 
             lexer->next_token();
@@ -964,7 +969,7 @@ std::shared_ptr<Node> Parser::statement() {
             if (lexer->sym == Lexer::SEMICOLON) {
                 lexer->next_token();
             } else {
-                error("';' expected, " + std::to_string(lexer->sym) + " found");
+                error("expected ';'");
             }
         }
     }

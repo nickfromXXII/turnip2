@@ -630,7 +630,12 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                             table.at(n->var_name),
                             Type::getInt8PtrTy(context)
                     );
-                    builder->CreateMemCpy(arr, val, 255, 1);
+                    builder->CreateMemCpy(
+                            arr,
+                            val,
+                            255,
+                            module->getDataLayout().getABITypeAlignment(Type::getInt8Ty(context))
+                    );
                 } else {
                     builder->CreateStore(val, table.at(n->var_name));
                 }
@@ -693,7 +698,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                         )
                 );
                 break;
-            } else {
+            } else if (table.at(n->var_name)->getType() == PointerType::get(PointerType::get(Type::getInt8Ty(context), 0), 0)) {
+                type = PointerType::get(Type::getInt8Ty(context), 0);
+            }
+            else {
                 stack.emplace(table.at(n->var_name));
                 break;
             }
@@ -805,7 +813,6 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             std::vector<Value *> args; // generate values of arguments
             for (auto &&arg : n->func_call_args) {
                 generate(arg); // generate value
-                stack.top()->dump();
                 args.emplace_back(stack.top()); // take it from the stack
                 stack.pop(); // erase it from the stack
             }
@@ -1735,7 +1742,12 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                 el_ptr,
                                 Type::getInt8PtrTy(context)
                         );
-                        builder->CreateMemCpy(arr, val, 255, 1);
+                        builder->CreateMemCpy(
+                                arr,
+                                val,
+                                255,
+                                module->getDataLayout().getABITypeAlignment(Type::getInt8Ty(context))
+                        );
                     } else {
                         builder->CreateStore(val, el_ptr); // update value of variable
                     }
@@ -1833,7 +1845,12 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                 table.at(n->var_name),
                                 Type::getInt8PtrTy(context)
                         );
-                        builder->CreateMemCpy(arr, val, 255, 1);
+                        builder->CreateMemCpy(
+                                arr,
+                                val,
+                                255,
+                                module->getDataLayout().getABITypeAlignment(Type::getInt8Ty(context))
+                        );
                     } else {
                         builder->CreateStore(val, table.at(n->var_name)); // update value of variable
                     }
@@ -2341,17 +2358,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                         )
                 );
 
-                if (table.at(name)->getType() == PointerType::get(PointerType::get(Type::getInt8Ty(context), 0), 0)) {
-                    Value *arr = builder->CreateBitCast(
-                            table.at(name),
-                            Type::getInt8PtrTy(context)
-                    );
-                    builder->CreateMemCpy(arr, &Arg, 255, 1);
-                } else {
-                    builder->CreateStore(&Arg, table.at(name)); // store the value of argument to allocator
-                }
-
-                //builder->CreateStore(&Arg, table.at(name)); // store the value of argument to allocator
+                builder->CreateStore(&Arg, table.at(name)); // store the value of argument to allocator
 
                 if (generateDI) {
                     DILocalVariable *var = dbuilder->createParameterVariable(

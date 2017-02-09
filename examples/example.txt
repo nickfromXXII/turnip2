@@ -1,11 +1,7 @@
+function str(s: string) : string {
+    return s;
+}
+
 function main() {
-    var arr: int = array of 10;
-
-    repeat 10 {
-        arr[index] = index;
-    }
-
-    repeat 10 {
-        println arr[index];
-    }
+    println str("Hello, world!");
 }
