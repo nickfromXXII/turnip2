@@ -7,8 +7,8 @@ Turnip2 is a C-like strongly typed programming language for beginners in program
 Here is the sample code (other examples you can find in `examples/` dir):
 ```
 function main() {
-    new a: int = 123;
-    new b: int;
+    var a: int = 123;
+    var b: int;
 
     if not a < 0 or a is 255 {
         println "a is more than 0 or a is 255";
