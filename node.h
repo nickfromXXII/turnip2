@@ -39,9 +39,8 @@ public:
 
     int kind = -1;
     std::shared_ptr<struct Node> o1, o2, o3;
-    std::string owner_class = "";
 
-    enum val_type { VOID, INTEGER, FLOATING, STRING, USER };
+    enum val_type { VOID, INTEGER, FLOATING, STRING, BOOL, USER };
     enum access_type { PRIVATE, PUBLIC, PROTECTED };
 
     int value_type = val_type::VOID;

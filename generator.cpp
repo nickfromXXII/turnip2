@@ -60,6 +60,7 @@ void Generator::use_io() {
     printf = module->getOrInsertFunction("printf", printfType);
 
     table.emplace("float_in_format", builder->CreateGlobalStringPtr("%d", "float_in_format"));
+    table.emplace("str_in_format", builder->CreateGlobalStringPtr("%255s", "str_in_format"));
 
     scanfArgs.emplace_back(Type::getInt8PtrTy(context)); // create the prototype of scanf function
     scanfType = FunctionType::get(Type::getInt32Ty(context), scanfArgs, true);
@@ -110,7 +111,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                         n->location.line,
                                         dbuilder->createArrayType(
                                                 static_cast<unsigned>(elements_count),
-                                                table.at(n->var_name)->getPointerAlignment(module->getDataLayout()),
+                                                module->getDataLayout().getABITypeAlignment(Type::getInt32Ty(context)),
                                                 getDebugType(Type::getInt32Ty(context)),
                                                 nullptr
                                         )
@@ -149,7 +150,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                         n->location.line,
                                         dbuilder->createArrayType(
                                                 static_cast<unsigned>(elements_count),
-                                                table.at(n->var_name)->getPointerAlignment(module->getDataLayout()),
+                                                module->getDataLayout().getABITypeAlignment(Type::getDoubleTy(context)),
                                                 getDebugType(Type::getDoubleTy(context)),
                                                 nullptr
                                         )
@@ -168,7 +169,85 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                             }
                             break;
                         }
-                        case Node::USER: // user type array
+                        case Node::STRING: { // string array
+                            table.emplace(
+                                    n->var_name,
+                                    builder->CreateAlloca(
+                                            ArrayType::get(
+                                                    ArrayType::get(Type::getInt8Ty(context), 256),
+                                                    static_cast<uint64_t>(elements_count)
+                                            ),
+                                            nullptr,
+                                            n->var_name + "_ptr"
+                                    )
+                            );
+                            if (generateDI) {
+                                DILocalVariable *var = dbuilder->createAutoVariable(
+                                        lexical_blocks.back(),
+                                        n->var_name,
+                                        unit,
+                                        n->location.line,
+                                        dbuilder->createArrayType(
+                                                static_cast<unsigned>(elements_count),
+                                                module->getDataLayout().getABITypeAlignment(ArrayType::get(Type::getInt8Ty(context), 256)),
+                                                getDebugType(ArrayType::get(Type::getInt8Ty(context), 256)),
+                                                nullptr
+                                        )
+                                );
+                                dbuilder->insertDeclare(
+                                        table.at(n->var_name),
+                                        var,
+                                        dbuilder->createExpression(),
+                                        DebugLoc::get(
+                                                (n->location.line),
+                                                0,
+                                                lexical_blocks.back()
+                                        ),
+                                        builder->GetInsertBlock()
+                                );
+                            }
+                            break;
+                        }
+                        case Node::BOOL: { // bool array
+                            table.emplace(
+                                    n->var_name,
+                                    builder->CreateAlloca(
+                                            ArrayType::get(
+                                                    Type::getInt1Ty(context),
+                                                    static_cast<uint64_t>(elements_count)
+                                            ),
+                                            nullptr,
+                                            n->var_name + "_ptr"
+                                    )
+                            );
+                            if (generateDI) {
+                                DILocalVariable *var = dbuilder->createAutoVariable(
+                                        lexical_blocks.back(),
+                                        n->var_name,
+                                        unit,
+                                        n->location.line,
+                                        dbuilder->createArrayType(
+                                                static_cast<unsigned>(elements_count),
+                                                module->getDataLayout().getABITypeAlignment(Type::getInt1Ty(context)),
+                                                getDebugType(Type::getInt1Ty(context)),
+                                                nullptr
+                                        )
+                                );
+                                dbuilder->insertDeclare(
+                                        table.at(n->var_name),
+                                        var,
+                                        dbuilder->createExpression(),
+                                        DebugLoc::get(
+                                                (n->location.line),
+                                                0,
+                                                lexical_blocks.back()
+                                        ),
+                                        builder->GetInsertBlock()
+                                );
+                            }
+                            break;
+                        }
+                        case Node::USER: // user type array TODO debug info
                             table.emplace(
                                     n->var_name,
                                     builder->CreateAlloca(
@@ -249,6 +328,68 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                         }
                         break;
                     }
+                    case Node::STRING: { // string variable
+                        table.emplace(
+                                n->var_name,
+                                builder->CreateAlloca(
+                                        ArrayType::get(Type::getInt8Ty(context), 256),
+                                        nullptr,
+                                        n->var_name + "_ptr")
+
+                        );
+                        if (generateDI) {
+                            DILocalVariable *var = dbuilder->createAutoVariable(
+                                    lexical_blocks.back(),
+                                    n->var_name,
+                                    unit,
+                                    n->location.line,
+                                    getDebugType(ArrayType::get(Type::getInt8Ty(context), 256))
+                            );
+                            dbuilder->insertDeclare(
+                                    table.at(n->var_name),
+                                    var,
+                                    dbuilder->createExpression(),
+                                    DebugLoc::get(
+                                            n->location.line,
+                                            0,
+                                            lexical_blocks.back()
+                                    ),
+                                    builder->GetInsertBlock()
+                            );
+                        }
+                        break;
+                    }
+                    case Node::BOOL: { // bool variable
+                        table.emplace(
+                                n->var_name,
+                                builder->CreateAlloca(
+                                        Type::getInt1Ty(context),
+                                        nullptr,
+                                        n->var_name + "_ptr"
+                                )
+                        );
+                        if (generateDI) {
+                            DILocalVariable *var = dbuilder->createAutoVariable(
+                                    lexical_blocks.back(),
+                                    n->var_name,
+                                    unit,
+                                    n->location.line,
+                                    getDebugType(Type::getInt1Ty(context))
+                            );
+                            dbuilder->insertDeclare(
+                                    table.at(n->var_name),
+                                    var,
+                                    dbuilder->createExpression(),
+                                    DebugLoc::get(
+                                            n->location.line,
+                                            0,
+                                            lexical_blocks.back()
+                                    ),
+                                    builder->GetInsertBlock()
+                            );
+                        }
+                        break;
+                    }
                     case Node::USER: // user-type variable
                         table.emplace(
                                 n->var_name,
@@ -313,6 +454,68 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                 unit,
                                 n->location.line,
                                 getDebugType(Type::getDoubleTy(context))
+                        );
+                        dbuilder->insertDeclare(
+                                table.at(n->var_name),
+                                var,
+                                dbuilder->createExpression(),
+                                DebugLoc::get(
+                                        n->location.line,
+                                        0,
+                                        lexical_blocks.back()
+                                ),
+                                builder->GetInsertBlock()
+                        );
+                    }
+                    break;
+                }
+                case Node::STRING: { // string variable
+                    table.emplace(
+                            n->var_name,
+                            builder->CreateAlloca(
+                                    ArrayType::get(Type::getInt8Ty(context), 256),
+                                    nullptr,
+                                    n->var_name + "_ptr")
+
+                    );
+                    if (generateDI) {
+                        DILocalVariable *var = dbuilder->createAutoVariable(
+                                lexical_blocks.back(),
+                                n->var_name,
+                                unit,
+                                n->location.line,
+                                getDebugType(ArrayType::get(Type::getInt8Ty(context), 256))
+                        );
+                        dbuilder->insertDeclare(
+                                table.at(n->var_name),
+                                var,
+                                dbuilder->createExpression(),
+                                DebugLoc::get(
+                                        n->location.line,
+                                        0,
+                                        lexical_blocks.back()
+                                ),
+                                builder->GetInsertBlock()
+                        );
+                    }
+                    break;
+                }
+                case Node::BOOL: { // bool variable
+                    table.emplace(
+                            n->var_name,
+                            builder->CreateAlloca(
+                                    Type::getInt1Ty(context),
+                                    nullptr,
+                                    n->var_name + "_ptr"
+                            )
+                    );
+                    if (generateDI) {
+                        DILocalVariable *var = dbuilder->createAutoVariable(
+                                lexical_blocks.back(),
+                                n->var_name,
+                                unit,
+                                n->location.line,
+                                getDebugType(Type::getInt1Ty(context))
                         );
                         dbuilder->insertDeclare(
                                 table.at(n->var_name),
@@ -413,10 +616,29 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                     } else if (table.at(n->var_name)->getType()->isDoubleTy() && val->getType()->isIntegerTy(32)) {
                         Value *buf = val;
                         val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
+                    } else if (table.at(n->var_name)->getType()->isIntegerTy(1) && val->getType()->isDoubleTy()) {
+                        Value *buf = val;
+                        val = builder->CreateFPToUI(buf, Type::getInt1Ty(context));
+                    } else if (table.at(n->var_name)->getType()->isDoubleTy() && val->getType()->isIntegerTy(1)) {
+                        Value *buf = val;
+                        val = builder->CreateUIToFP(buf, Type::getDoubleTy(context));
                     }
                 }
 
-                builder->CreateStore(val, table.at(n->var_name));
+                if (table.at(n->var_name)->getType() == PointerType::get(ArrayType::get(Type::getInt8Ty(context), 256), 0)) {
+                    Value *arr = builder->CreateBitCast(
+                            table.at(n->var_name),
+                            Type::getInt8PtrTy(context)
+                    );
+                    builder->CreateMemCpy(
+                            arr,
+                            val,
+                            255,
+                            module->getDataLayout().getABITypeAlignment(Type::getInt8Ty(context))
+                    );
+                } else {
+                    builder->CreateStore(val, table.at(n->var_name));
+                }
             }
             break;
         }
@@ -463,7 +685,23 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                 type = Type::getInt32Ty(context);
             } else if (table.at(n->var_name)->getType() == Type::getDoublePtrTy(context)) {
                 type = Type::getDoubleTy(context);
-            } else {
+            } else if (table.at(n->var_name)->getType() == Type::getInt1PtrTy(context)) {
+                type = Type::getInt1Ty(context);
+            } else if (table.at(n->var_name)->getType() == PointerType::get(ArrayType::get(Type::getInt8Ty(context), 256), 0)) {
+                stack.emplace(
+                        builder->CreateGEP(
+                                table.at(n->var_name), {
+                                        ConstantInt::get(Type::getInt32Ty(context), 0),
+                                        ConstantInt::get(Type::getInt32Ty(context), 0)
+                                },
+                                n->var_name
+                        )
+                );
+                break;
+            } else if (table.at(n->var_name)->getType() == PointerType::get(PointerType::get(Type::getInt8Ty(context), 0), 0)) {
+                type = PointerType::get(Type::getInt8Ty(context), 0);
+            }
+            else {
                 stack.emplace(table.at(n->var_name));
                 break;
             }
@@ -781,19 +1019,41 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
 
 
             Value *arr_ptr = table.at(n->var_name); // get array's pointer
-            stack.emplace(
-                    builder->CreateLoad(
-                            builder->CreateGEP( // get element's pointer
-                                    arr_ptr,
-                                    {
-                                            ConstantInt::get(Type::getInt32Ty(context), 0),
-                                            element_val
-                                    },
-                                    n->var_name
-                            ),
-                            n->var_name
-                    )
-            );
+
+            ArrayType* arr_type = cast<ArrayType>(cast<PointerType>(arr_ptr->getType())->getElementType());
+            if (arr_type->getElementType() == ArrayType::get(Type::getInt8Ty(context), 256)) { // array of strings
+                stack.emplace(
+                        builder->CreateGEP(
+                                builder->CreateGEP(
+                                        arr_ptr,
+                                        {
+                                                ConstantInt::get(Type::getInt32Ty(context), 0),
+                                                element_val
+                                        },
+                                        n->var_name
+                                ),
+                                {
+                                        ConstantInt::get(Type::getInt32Ty(context), 0),
+                                        ConstantInt::get(Type::getInt32Ty(context), 0)
+                                },
+                                n->var_name
+                        )
+                );
+            } else {
+                stack.emplace(
+                        builder->CreateLoad(
+                                builder->CreateGEP( // get element's pointer
+                                        arr_ptr,
+                                        {
+                                                ConstantInt::get(Type::getInt32Ty(context), 0),
+                                                element_val
+                                        },
+                                        n->var_name
+                                ),
+                                n->var_name
+                        )
+                );
+            }
             break;
         }
         case Node::CONST: { // generate constant value
@@ -806,11 +1066,15 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                     stack.emplace(builder->CreateGlobalStringPtr(n->str_val));
                     break;
                 case Node::INTEGER: { // integer constant
-                    stack.emplace(ConstantInt::get(context, APInt(32, static_cast<uint64_t>(n->int_val))));
+                    stack.emplace(ConstantInt::get(Type::getInt32Ty(context), static_cast<uint64_t>(n->int_val), true));
+                    break;
+                }
+                case Node::BOOL: { // bool constant
+                    stack.emplace(ConstantInt::get(Type::getInt1Ty(context), static_cast<uint64_t>(n->int_val)));
                     break;
                 }
                 case Node::FLOATING: { // float constant
-                    stack.emplace(ConstantFP::get(context, APFloat(n->float_val)));
+                    stack.emplace(ConstantFP::get(Type::getDoubleTy(context), n->float_val));
                     break;
                 }
             }
@@ -828,6 +1092,30 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             generate(n->o2); // generate second value
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
+
+            // strings concatenation
+            if (left->getType() == Type::getInt8PtrTy(context) && right->getType() == Type::getInt8PtrTy(context)) {
+                Constant *strcat = module->getOrInsertFunction(
+                        "strcat",
+                        FunctionType::get(
+                                Type::getInt32Ty(context),
+                                { Type::getInt8PtrTy(context), Type::getInt8PtrTy(context) },
+                                false
+                        )
+                );
+
+                Value *new_str = builder->CreateBitCast(
+                        builder->CreateAlloca(
+                                ArrayType::get(Type::getInt8Ty(context), 256),
+                                nullptr,
+                                ""
+                        ),
+                        Type::getInt8PtrTy(context)
+                );
+                builder->CreateMemCpy(new_str, left, 255, module->getDataLayout().getABITypeAlignment(Type::getInt8Ty(context)));
+                builder->CreateCall(strcat, { new_str, right });
+                stack.emplace(new_str);
+            }
 
             if (left->getType()->isIntegerTy()) { // left operand is int
                 if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
@@ -945,7 +1233,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
 
-            stack.push(builder->CreateAnd(left, right));
+            stack.emplace(builder->CreateAnd(left, right));
             break;
         }
         case Node::OR: {
@@ -961,7 +1249,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
 
-            stack.push(builder->CreateOr(left, right));
+            stack.emplace(builder->CreateOr(left, right));
             break;
         }
         case Node::NOT: {
@@ -973,7 +1261,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             Value *val = stack.top();
             stack.pop();
 
-            stack.push(
+            stack.emplace(
                     builder->CreateXor(
                             val,
                             ConstantInt::get(Type::getInt1Ty(context), static_cast<uint64_t>(true))
@@ -993,6 +1281,23 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             generate(n->o2); // generate second value
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
+
+            // compare strings
+            if (left->getType() == Type::getInt8PtrTy(context) && right->getType() == Type::getInt8PtrTy(context)) {
+                Constant *strcmp = module->getOrInsertFunction(
+                        "strcmp",
+                        FunctionType::get(
+                                Type::getInt32Ty(context),
+                                { Type::getInt8PtrTy(context), Type::getInt8PtrTy(context) },
+                                false
+                        )
+                );
+
+                stack.emplace(builder->CreateICmpSLT(
+                        builder->CreateCall(strcmp, { left, right }),
+                        ConstantInt::get(Type::getInt32Ty(context), 0))
+                );
+            }
 
             if (left->getType()->isIntegerTy()) { // left operand is int
                 if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
@@ -1023,6 +1328,23 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
 
+            // compare strings
+            if (left->getType() == Type::getInt8PtrTy(context) && right->getType() == Type::getInt8PtrTy(context)) {
+                Constant *strcmp = module->getOrInsertFunction(
+                        "strcmp",
+                        FunctionType::get(
+                                Type::getInt32Ty(context),
+                                { Type::getInt8PtrTy(context), Type::getInt8PtrTy(context) },
+                                false
+                        )
+                );
+
+                stack.emplace(builder->CreateICmpSLE(
+                        builder->CreateCall(strcmp, { left, right }),
+                        ConstantInt::get(Type::getInt32Ty(context), 0))
+                );
+            }
+
             if (left->getType()->isIntegerTy()) { // left operand is int
                 if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
                     Value *buf = right;
@@ -1051,6 +1373,23 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             generate(n->o2); // generate second value
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
+
+            // compare strings
+            if (left->getType() == Type::getInt8PtrTy(context) && right->getType() == Type::getInt8PtrTy(context)) {
+                Constant *strcmp = module->getOrInsertFunction(
+                        "strcmp",
+                        FunctionType::get(
+                                Type::getInt32Ty(context),
+                                { Type::getInt8PtrTy(context), Type::getInt8PtrTy(context) },
+                                false
+                        )
+                );
+
+                stack.emplace(builder->CreateICmpSGT(
+                        builder->CreateCall(strcmp, { left, right }),
+                        ConstantInt::get(Type::getInt32Ty(context), 0))
+                );
+            }
 
             if (left->getType()->isIntegerTy()) { // left operand is int
                 if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
@@ -1081,6 +1420,23 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
 
+            // compare strings
+            if (left->getType() == Type::getInt8PtrTy(context) && right->getType() == Type::getInt8PtrTy(context)) {
+                Constant *strcmp = module->getOrInsertFunction(
+                        "strcmp",
+                        FunctionType::get(
+                                Type::getInt32Ty(context),
+                                { Type::getInt8PtrTy(context), Type::getInt8PtrTy(context) },
+                                false
+                        )
+                );
+
+                stack.emplace(builder->CreateICmpSGE(
+                        builder->CreateCall(strcmp, { left, right }),
+                        ConstantInt::get(Type::getInt32Ty(context), 0))
+                );
+            }
+
             if (left->getType()->isIntegerTy()) { // left operand is int
                 if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
                     Value *buf = right;
@@ -1108,6 +1464,23 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             generate(n->o2); // generate second value
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
+
+            // compare strings
+            if (left->getType() == Type::getInt8PtrTy(context) && right->getType() == Type::getInt8PtrTy(context)) {
+                Constant *strcmp = module->getOrInsertFunction(
+                        "strcmp",
+                        FunctionType::get(
+                                Type::getInt32Ty(context),
+                                { Type::getInt8PtrTy(context), Type::getInt8PtrTy(context) },
+                                false
+                        )
+                );
+
+                stack.emplace(builder->CreateICmpEQ(
+                        builder->CreateCall(strcmp, { left, right }),
+                        ConstantInt::get(Type::getInt32Ty(context), 0))
+                );
+            }
 
             if (left->getType()->isIntegerTy()) { // left operand is int
                 if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
@@ -1137,6 +1510,23 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             generate(n->o2); // generate second value
             Value *right = stack.top(); // take it from the stack
             stack.pop(); // erase it from the stack
+
+            // compare strings
+            if (left->getType() == Type::getInt8PtrTy(context) && right->getType() == Type::getInt8PtrTy(context)) {
+                Constant *strcmp = module->getOrInsertFunction(
+                        "strcmp",
+                        FunctionType::get(
+                                Type::getInt32Ty(context),
+                                { Type::getInt8PtrTy(context), Type::getInt8PtrTy(context) },
+                                false
+                        )
+                );
+
+                stack.emplace(builder->CreateICmpNE(
+                        builder->CreateCall(strcmp, { left, right }),
+                        ConstantInt::get(Type::getInt32Ty(context), 0))
+                );
+            }
 
             if (left->getType()->isIntegerTy()) { // left operand is int
                 if (right->getType()->isDoubleTy()) { // if right operand is double, we have to convert it to int
@@ -1346,7 +1736,21 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                             val = builder->CreateSIToFP(buf, Type::getDoubleTy(context));
                         }
                     }
-                    builder->CreateStore(val, el_ptr); // update value of variable
+
+                    if (el_ptr->getType() == PointerType::get(ArrayType::get(Type::getInt8Ty(context), 256), 0)) {
+                        Value *arr = builder->CreateBitCast(
+                                el_ptr,
+                                Type::getInt8PtrTy(context)
+                        );
+                        builder->CreateMemCpy(
+                                arr,
+                                val,
+                                255,
+                                module->getDataLayout().getABITypeAlignment(Type::getInt8Ty(context))
+                        );
+                    } else {
+                        builder->CreateStore(val, el_ptr); // update value of variable
+                    }
 
                 } else if (!n->property_name.empty()) { // change value of object's property
                     Value *property_ptr;
@@ -1435,7 +1839,21 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                             );
                         }
                     }
-                    builder->CreateStore(val, ptr); // update value of variable
+
+                    if (table.at(n->var_name)->getType() == PointerType::get(ArrayType::get(Type::getInt8Ty(context), 256), 0)) {
+                        Value *arr = builder->CreateBitCast(
+                                table.at(n->var_name),
+                                Type::getInt8PtrTy(context)
+                        );
+                        builder->CreateMemCpy(
+                                arr,
+                                val,
+                                255,
+                                module->getDataLayout().getABITypeAlignment(Type::getInt8Ty(context))
+                        );
+                    } else {
+                        builder->CreateStore(val, table.at(n->var_name)); // update value of variable
+                    }
                 }
             }
 
@@ -1459,6 +1877,12 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                             break;
                         case Node::FLOATING:
                             properties_types.emplace_back(Type::getDoubleTy(context));
+                            break;
+                        case Node::STRING:
+                            properties_types.emplace_back(Type::getInt8PtrTy(context));
+                            break;
+                        case Node::BOOL:
+                            properties_types.emplace_back(Type::getInt1Ty(context));
                             break;
                     }
                     //table.emplace(properties_names.back(), builder->CreateAlloca(properties_types.back()));
@@ -1488,6 +1912,12 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                             case Node::FLOATING:
                                 args_types.emplace_back(Type::getDoubleTy(context));
                                 break;
+                            case Node::STRING:
+                                args_types.emplace_back(Type::getInt8PtrTy(context));
+                                break;
+                            case Node::BOOL:
+                                args_types.emplace_back(Type::getInt1Ty(context));
+                                break;
                             case Node::USER:
                                 args_types.emplace_back(PointerType::get(user_types.at(iterator.second->user_type_name).first, 0));
                                 break;
@@ -1501,6 +1931,12 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                             break;
                         case Node::FLOATING:
                             type = FunctionType::get(Type::getDoubleTy(context), args_types, false);
+                            break;
+                        case Node::STRING:
+                            type = FunctionType::get(Type::getInt8PtrTy(context), args_types, false);
+                            break;
+                        case Node::BOOL:
+                            type = FunctionType::get(Type::getInt1Ty(context), args_types, false);
                             break;
                         case Node::USER:
                             type = FunctionType::get(PointerType::get(class_type, 0), args_types, false);
@@ -1561,7 +1997,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                             DILocalVariable *var = dbuilder->createParameterVariable(
                                     SP,
                                     name,
-                                    idx,
+                                    static_cast<unsigned int>(idx),
                                     unit,
                                     n->location.line,
                                     getDebugType(Arg.getType()),
@@ -1580,6 +2016,9 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                 break;
                             case Node::FLOATING:
                                 builder->CreateRet(ConstantFP::get(Type::getDoubleTy(context), 0.0));
+                                break;
+                            case Node::BOOL:
+                                builder->CreateRet(ConstantInt::get(Type::getInt1Ty(context), 0));
                                 break;
                             default:
                                 builder->CreateRetVoid();
@@ -1769,10 +2208,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::REPEAT: { // 'repeat' cycle FIXME
-            if (table.count("index") == 0)
-            {
-                table.emplace("index", builder->CreateAlloca(Type::getInt32Ty(context), nullptr, "index_ptr"));
-            }
+            table.try_emplace("index", builder->CreateAlloca(Type::getInt32Ty(context), nullptr, "index_ptr"));
 
             builder->CreateStore(ConstantInt::get(Type::getInt32Ty(context), APInt(32, 0)),
                                  table.at("index")); // zeroize the counter
@@ -1822,6 +2258,10 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             break;
         }
         case Node::FUNCTION_DEFINE: { // generate function's definition
+            if (n->var_name == "main") {
+                n->value_type = Node::INTEGER;
+            }
+
             FunctionType *type;
 
             // generate arguments
@@ -1834,6 +2274,12 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                         break;
                     case Node::FLOATING:
                         args_types.emplace_back(Type::getDoubleTy(context));
+                        break;
+                    case Node::STRING:
+                        args_types.emplace_back(Type::getInt8PtrTy(context));
+                        break;
+                    case Node::BOOL:
+                        args_types.emplace_back(Type::getInt1Ty(context));
                         break;
                     case Node::USER:
                         args_types.emplace_back(PointerType::get(
@@ -1850,6 +2296,12 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                     break;
                 case Node::FLOATING:
                     type = FunctionType::get(Type::getDoubleTy(context), args_types, false);
+                    break;
+                case Node::STRING:
+                    type = FunctionType::get(Type::getInt8PtrTy(context), args_types, false);
+                    break;
+                case Node::BOOL:
+                    type = FunctionType::get(Type::getInt1Ty(context), args_types, false);
                     break;
                 case Node::USER:
                     type = FunctionType::get(PointerType::get(user_types.at(n->user_type).first, 0), args_types, false);
@@ -1905,6 +2357,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                                 name + "_ptr"
                         )
                 );
+
                 builder->CreateStore(&Arg, table.at(name)); // store the value of argument to allocator
 
                 if (generateDI) {
@@ -1931,6 +2384,9 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                         break;
                     case Node::FLOATING:
                         builder->CreateRet(ConstantFP::get(Type::getDoubleTy(context), 0.0));
+                        break;
+                    case Node::BOOL:
+                        builder->CreateRet(ConstantInt::get(Type::getInt1Ty(context), 0));
                         break;
                     default:
                         builder->CreateRetVoid();
@@ -1977,7 +2433,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             std::vector<Value*> args;
 
             Value *format;
-            if (stack.top()->getType()->isIntegerTy(32)) { // print integer
+            if (stack.top()->getType()->isIntegerTy()) { // print integer
                 format = table.at("int_out_format");
             } else if (stack.top()->getType()->isDoubleTy()) { // print float
                 format = table.at("float_out_format");
@@ -1997,11 +2453,33 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                 use_io();
             }
 
-            std::vector<Value*> args;
-            Value *format = table.at("float_in_format");
+            std::vector<Value *> args;
+            Value *format;
+            bool is_str_var = false;
+            if (table.at(n->var_name)->getType() == Type::getInt32PtrTy(context) ||
+                table.at(n->var_name)->getType() == Type::getDoublePtrTy(context)) {
+                format = table.at("float_in_format");
+            } else {
+                format = table.at("str_in_format");
+                is_str_var = true;
+            }
 
             args.emplace_back(format);
-            args.emplace_back(table.at(n->var_name));
+
+            Value *var;
+            if (is_str_var) {
+                var = builder->CreateGEP( // get element's pointer
+                        table.at(n->var_name),
+                        {
+                                ConstantInt::get(Type::getInt32Ty(context), 0),
+                                ConstantInt::get(Type::getInt32Ty(context), 0)
+                        },
+                        n->var_name
+                );
+            } else {
+                var = table.at(n->var_name);
+            }
+            args.emplace_back(var);
             builder->CreateCall(scanf, args); // call scanf
 
             break;
@@ -2015,6 +2493,12 @@ DIType *Generator::getDebugType(Type *ty, DIScope *scope, DIFile *file, unsigned
         return dbuilder->createBasicType("int", 32, align, dwarf::DW_ATE_signed);
     } else if (ty->isDoubleTy()) {
         return dbuilder->createBasicType("float", 64, align, dwarf::DW_ATE_float);
+    } else if (ty->isIntegerTy(8)) {
+        return dbuilder->createBasicType("char", 8, align, dwarf::DW_ATE_unsigned_char);
+    } else if (ty == ArrayType::get(Type::getInt8Ty(context), 256)) {
+        return dbuilder->createArrayType(256, align, getDebugType(Type::getInt8Ty(context)), nullptr);
+    } else if (ty->isIntegerTy(1)) {
+        return dbuilder->createBasicType("bool", 1, align, dwarf::DW_ATE_boolean);
     } else if (ty->isStructTy()) { // FIXME
         std::vector<DINode *> elements;
         StructType *structTy = static_cast<StructType *>(ty);
@@ -2034,6 +2518,8 @@ DIType *Generator::getDebugType(Type *ty, DIScope *scope, DIFile *file, unsigned
                 nullptr,
                 nullptr
         );
+    } else {
+        return nullptr;
     }
 }
 
