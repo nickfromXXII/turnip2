@@ -54,7 +54,7 @@ class Generator {
     bool generateDI;
     DICompileUnit *compileUnit;
 
-    DIType *getDebugType(Type *ty, DIScope *scope = nullptr, DIFile *file = nullptr, unsigned line = 0);
+    DIType *getDebugType(Type *ty);
     std::vector<DIScope *> lexical_blocks;
     std::map<std::shared_ptr<Node>, DIScope *> func_scopes;
     DIFile *unit;
