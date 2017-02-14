@@ -2207,7 +2207,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
 
             break;
         }
-        case Node::REPEAT: { // 'repeat' cycle FIXME
+        case Node::REPEAT: { // 'repeat' cycle
             table.try_emplace("index", builder->CreateAlloca(Type::getInt32Ty(context), nullptr, "index_ptr"));
 
             builder->CreateStore(ConstantInt::get(Type::getInt32Ty(context), APInt(32, 0)),
@@ -2424,7 +2424,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             builder->GetInsertBlock()->getParent()->addAttribute(0, Attribute::get(context, "ret"));
 
             break;
-        case Node::PRINTLN: { // print something TODO: migrate to call of prinf function
+        case Node::PRINTLN: { // print something
             if (!io_using) {
                 use_io();
             }
@@ -2487,7 +2487,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
     }
 }
 
-DIType *Generator::getDebugType(Type *ty, DIScope *scope, DIFile *file, unsigned line) {
+DIType *Generator::getDebugType(Type *ty) {
     unsigned align = module->getDataLayout().getABITypeAlignment(ty);
     if (ty->isIntegerTy(32)) {
         return dbuilder->createBasicType("int", 32, align, dwarf::DW_ATE_signed);
@@ -2499,25 +2499,6 @@ DIType *Generator::getDebugType(Type *ty, DIScope *scope, DIFile *file, unsigned
         return dbuilder->createArrayType(256, align, getDebugType(Type::getInt8Ty(context)), nullptr);
     } else if (ty->isIntegerTy(1)) {
         return dbuilder->createBasicType("bool", 1, align, dwarf::DW_ATE_boolean);
-    } else if (ty->isStructTy()) { // FIXME
-        std::vector<DINode *> elements;
-        StructType *structTy = static_cast<StructType *>(ty);
-        for (auto &&item : structTy->elements()) {
-            elements.emplace_back(getDebugType(item));
-        }
-
-        return dbuilder->createClassType(
-                scope,
-                ty->getStructName(),
-                unit,
-                line,
-                module->getDataLayout().getTypeSizeInBits(ty),
-                align,
-                256,
-                0,
-                nullptr,
-                nullptr
-        );
     } else {
         return nullptr;
     }
