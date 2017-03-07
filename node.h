@@ -13,7 +13,9 @@
 
 class Node {
 public:
-    explicit Node(int k) { kind = k; }
+    explicit Node(unsigned short k = 255, std::shared_ptr<class Node> op1 = nullptr,
+                  std::shared_ptr<class Node> op2 = nullptr, std::shared_ptr<class Node> op3 = nullptr)
+            : kind(k), o1(op1), o2(op2), o3(op3) {}
 
     Location location;
 
@@ -37,8 +39,8 @@ public:
         FUNCTION_DEFINE, CLASS_DEFINE
     };
 
-    int kind = -1;
-    std::shared_ptr<struct Node> o1, o2, o3;
+    unsigned short kind;
+    std::shared_ptr<class Node> o1, o2, o3;
 
     enum val_type { VOID, INTEGER, FLOATING, STRING, BOOL, USER };
     enum access_type { PRIVATE, PUBLIC, PROTECTED };

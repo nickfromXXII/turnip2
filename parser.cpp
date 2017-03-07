@@ -311,7 +311,7 @@ std::shared_ptr<Node> Parser::sum() {
     while (lexer->sym == Lexer::PLUS || lexer->sym == Lexer::MINUS) {
         t = x;
 
-        int kind = -1;
+        unsigned short kind = 255;
         switch (lexer->sym) {
             case Lexer::PLUS: {
                 kind = Node::ADD;
@@ -355,6 +355,36 @@ std::shared_ptr<Node> Parser::test() {
 
             x->o1 = t;
             x->o2 = sum();
+
+            if (lexer->sym == Lexer::LESS) {
+                lexer->next_token();
+
+                std::vector<std::shared_ptr<Node>> operands = { x->o1, x->o2 };
+
+                while (true) {
+                    operands.emplace_back(sum());
+
+                    if (lexer->sym == Lexer::LESS) {
+                        lexer->next_token();
+                        continue;
+                    }
+
+                    break;
+                }
+
+                std::vector<std::shared_ptr<Node>> tests;
+                for (std::vector<std::shared_ptr<Node>>::size_type i = 0; i != operands.size()-1; i++) {
+                        tests.emplace_back(std::make_shared<Node>(Node::LESS_TEST, operands.at(i), operands.at(i+1)));
+                }
+
+                x = nullptr;
+                for (auto &&test : tests) {
+                    if (x != nullptr) {
+                        t = x;
+                        x = std::make_shared<Node>(Node::AND, t, test);
+                    } else x = test;
+                }
+            }
 
             break;
         }
