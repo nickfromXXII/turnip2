@@ -341,62 +341,59 @@ std::shared_ptr<Node> Parser::test() {
 
     switch (lexer->sym) {
         case Lexer::LESS: {
-            t = x;
-            x = std::make_shared<Node>(Node::LESS_TEST);
-            x->location = lexer->location;
-
             lexer->next_token();
 
+            std::vector<std::shared_ptr<Node>> operands = { x };
+            std::vector<unsigned> operations;
+
             if (lexer->sym == Lexer::EQUAL) {
-                x = std::make_shared<Node>(Node::LESS_IS_TEST);
-                x->location = lexer->location;
                 lexer->next_token();
-            }
+                operations.emplace_back(Node::LESS_EQUAL);
+            } else operations.emplace_back(Node::LESS);
 
-            x->o1 = t;
-            x->o2 = sum();
+            while (true) {
+                operands.emplace_back(sum());
 
-            if (lexer->sym == Lexer::LESS) {
-                lexer->next_token();
+                if (lexer->sym == Lexer::LESS) {
+                    lexer->next_token();
 
-                std::vector<std::shared_ptr<Node>> operands = { x->o1, x->o2 };
-
-                while (true) {
-                    operands.emplace_back(sum());
-
-                    if (lexer->sym == Lexer::LESS) {
+                    if (lexer->sym == Lexer::EQUAL) {
                         lexer->next_token();
+                        operations.emplace_back(Node::LESS_EQUAL);
                         continue;
                     }
 
-                    break;
+                    operations.emplace_back(Node::LESS);
+                    continue;
                 }
 
-                std::vector<std::shared_ptr<Node>> tests;
-                for (std::vector<std::shared_ptr<Node>>::size_type i = 0; i != operands.size()-1; i++) {
-                        tests.emplace_back(std::make_shared<Node>(Node::LESS_TEST, operands.at(i), operands.at(i+1)));
-                }
+                break;
+            }
 
-                x = nullptr;
-                for (auto &&test : tests) {
-                    if (x != nullptr) {
-                        t = x;
-                        x = std::make_shared<Node>(Node::AND, t, test);
-                    } else x = test;
-                }
+            std::vector<std::shared_ptr<Node>> tests;
+            for (std::vector<std::shared_ptr<Node>>::size_type i = 0; i != operands.size()-1; i++) {
+                tests.emplace_back(std::make_shared<Node>(operations.at(i), operands.at(i), operands.at(i+1)));
+            }
+
+            x = nullptr;
+            for (auto &&test : tests) {
+                if (x != nullptr) {
+                    t = x;
+                    x = std::make_shared<Node>(Node::AND, t, test);
+                } else x = test;
             }
 
             break;
         }
         case Lexer::MORE: {
             t = x;
-            x = std::make_shared<Node>(Node::MORE_TEST);
+            x = std::make_shared<Node>(Node::MORE);
             x->location = lexer->location;
 
             lexer->next_token();
 
             if (lexer->sym == Lexer::EQUAL) {
-                x = std::make_shared<Node>(Node::MORE_IS_TEST);
+                x = std::make_shared<Node>(Node::MORE_EQUAL);
                 x->location = lexer->location;
                 lexer->next_token();
             }
@@ -408,13 +405,13 @@ std::shared_ptr<Node> Parser::test() {
         }
         case Lexer::IS: {
             t = x;
-            x = std::make_shared<Node>(Node::IS_TEST);
+            x = std::make_shared<Node>(Node::EQUAL);
             x->location = lexer->location;
 
             lexer->next_token();
 
             if (lexer->sym == Lexer::NOT) {
-                x = std::make_shared<Node>(Node::IS_NOT_TEST);
+                x = std::make_shared<Node>(Node::NOT_EQUAL);
                 x->location = lexer->location;
                 lexer->next_token();
             }

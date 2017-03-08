@@ -1269,7 +1269,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             );
             break;
         }
-        case Node::LESS_TEST: { // < FIXME floating point test
+        case Node::LESS: { // < FIXME floating point test
             if (generateDI) {
                 emitLocation(n);
             }
@@ -1315,7 +1315,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             }
             break;
         }
-        case Node::LESS_IS_TEST: { // <= FIXME floating point test
+        case Node::LESS_EQUAL: { // <= FIXME floating point test
             if (generateDI) {
                 emitLocation(n);
             }
@@ -1361,7 +1361,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             }
             break;
         }
-        case Node::MORE_TEST: { // > FIXME floating point test
+        case Node::MORE: { // > FIXME floating point test
             if (generateDI) {
                 emitLocation(n);
             }
@@ -1407,7 +1407,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             }
             break;
         }
-        case Node::MORE_IS_TEST: { // >= FIXME floating point test
+        case Node::MORE_EQUAL: { // >= FIXME floating point test
             if (generateDI) {
                 emitLocation(n);
             }
@@ -1452,7 +1452,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                 //stack.emplace(builder->CreateFCmpUGE(left, right)); // push generated test to the stack
             }
             break;        }
-        case Node::IS_TEST: { // is FIXME floating point test
+        case Node::EQUAL: { // is FIXME floating point test
             if (generateDI) {
                 emitLocation(n);
             }
@@ -1498,7 +1498,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             }
             break;
         }
-        case Node::IS_NOT_TEST: { // is not FIXME floating point test
+        case Node::NOT_EQUAL: { // is not FIXME floating point test
             if (generateDI) {
                 emitLocation(n);
             }
