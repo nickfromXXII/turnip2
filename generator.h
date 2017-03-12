@@ -27,10 +27,49 @@ class Generator {
     void error(unsigned line, const std::string &e);
     std::string file;
 
-    std::map<std::string, std::pair<StructType *, std::pair<std::vector<std::string>, std::vector<int>>>> user_types;
+    class Class_definition {
+    public:
+        std::string name;
+        StructType *llvm_type;
+
+        std::vector<std::string> private_properties;
+        std::vector<std::string> protected_properties;
+        std::vector<std::string> public_properties;
+        
+        inline std::vector<std::string>::iterator private_property(const std::string &name) {
+            return std::find(std::begin(private_properties), std::end(private_properties), name);
+        }
+
+        inline std::vector<std::string>::iterator protected_property(const std::string &name) {
+            return std::find(std::begin(protected_properties), std::end(protected_properties), name);
+        }
+
+        inline std::vector<std::string>::iterator public_property(const std::string &name) {
+            return std::find(std::begin(public_properties), std::end(public_properties), name);
+        }
+        
+        
+        std::map<std::string, Function *> private_methods;
+        std::map<std::string, Function *> protected_methods;
+        std::map<std::string, Function *> public_methods;
+
+        inline std::map<std::string, Function *>::iterator private_method(const std::string &name) {
+            return std::find(std::begin(private_methods), std::end(private_methods), name);
+        }
+
+        inline std::map<std::string, Function *>::iterator protected_method(const std::string &name) {
+            return std::find(std::begin(protected_methods), std::end(protected_methods), name);
+        }
+
+        inline std::map<std::string, Function *>::iterator public_method(const std::string &name) {
+            return std::find(std::begin(public_methods), std::end(public_methods), name);
+        }
+    };
+
+    std::map<std::string, std::shared_ptr<Class_definition>> user_types;
     std::map<std::string, Value *> table;
     std::map<std::string, Value *> array_sizes;
-    std::map<std::string, std::pair<Function *, int>> functions;
+    std::map<std::string, Function *> functions;
     LLVMContext context;
     std::vector<std::string> last_vars;
 
