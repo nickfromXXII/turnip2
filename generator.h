@@ -27,46 +27,24 @@ class Generator {
     void error(unsigned line, const std::string &e);
     std::string file;
 
-    class Class_definition {
+    class Method {
     public:
+        Method(Function *p = nullptr, unsigned short a = Node::PRIVATE) : prototype(p), access_type(a) {}
+        Function *prototype;
+        unsigned short access_type;
+    };
+
+    class ClassDefinition {
+    public:
+        ClassDefinition(const std::string &n = "", StructType *ty = nullptr) : name(n), llvm_type(ty) {}
         std::string name;
         StructType *llvm_type;
 
-        std::vector<std::string> private_properties;
-        std::vector<std::string> protected_properties;
-        std::vector<std::string> public_properties;
-        
-        inline std::vector<std::string>::iterator private_property(const std::string &name) {
-            return std::find(std::begin(private_properties), std::end(private_properties), name);
-        }
-
-        inline std::vector<std::string>::iterator protected_property(const std::string &name) {
-            return std::find(std::begin(protected_properties), std::end(protected_properties), name);
-        }
-
-        inline std::vector<std::string>::iterator public_property(const std::string &name) {
-            return std::find(std::begin(public_properties), std::end(public_properties), name);
-        }
-        
-        
-        std::map<std::string, Function *> private_methods;
-        std::map<std::string, Function *> protected_methods;
-        std::map<std::string, Function *> public_methods;
-
-        inline std::map<std::string, Function *>::iterator private_method(const std::string &name) {
-            return std::find(std::begin(private_methods), std::end(private_methods), name);
-        }
-
-        inline std::map<std::string, Function *>::iterator protected_method(const std::string &name) {
-            return std::find(std::begin(protected_methods), std::end(protected_methods), name);
-        }
-
-        inline std::map<std::string, Function *>::iterator public_method(const std::string &name) {
-            return std::find(std::begin(public_methods), std::end(public_methods), name);
-        }
+        std::map<std::string, unsigned short> properties;
+        std::map<std::string, std::shared_ptr<Method>> methods;
     };
 
-    std::map<std::string, std::shared_ptr<Class_definition>> user_types;
+    std::map<std::string, std::shared_ptr<ClassDefinition>> user_types;
     std::map<std::string, Value *> table;
     std::map<std::string, Value *> array_sizes;
     std::map<std::string, Function *> functions;
