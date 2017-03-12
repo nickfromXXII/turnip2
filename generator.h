@@ -76,7 +76,7 @@ class Generator {
     std::map<std::shared_ptr<Node>, DIScope *> func_scopes;
     DIFile *unit;
 
-    DISubroutineType *CreateFunctionType(std::vector<Type *> args, DIFile *unit);
+    DISubroutineType *CreateFunctionType(std::vector<Type *> args);
     void emitLocation(std::shared_ptr<Node> n);
 
 public:

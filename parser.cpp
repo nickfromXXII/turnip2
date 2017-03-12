@@ -586,7 +586,9 @@ std::shared_ptr<Node> Parser::var_def(bool isClassProperty) {
     }
 
     if (lexer->sym != Lexer::SEMICOLON) {
-        error("expected ';'");
+        if (!(isClassProperty && (lexer->sym == Lexer::INT ||lexer->sym == Lexer::FLOAT || lexer->sym == Lexer::STRING || lexer->sym == Lexer::BOOL || lexer->sym == Lexer::USER_TYPE))) {
+            error("expected ';'");
+        }
     }
 
     return x;

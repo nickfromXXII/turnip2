@@ -33,5 +33,7 @@ function test() : Int {
 function main()  # entry point
 {
     var I: Int = Int(5);
+    foo(I);
+    println I.get();
     println test().value;
 }

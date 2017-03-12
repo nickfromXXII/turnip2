@@ -659,7 +659,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             Type *type;
 
             auto ptr = table.at(n->var_name);
-            for (auto &&user_type : user_types) {
+            /*for (auto &&user_type : user_types) {
                 auto iter = user_type.second->properties.find(n->var_name);
                 if (iter != std::end(user_type.second->properties)) {
                     ptr = builder->CreateGEP(
@@ -675,7 +675,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                             n->var_name
                     );
                 }
-            }
+            }*/
 
             if (table.at(n->var_name)->getType() == Type::getInt32PtrTy(context)) {
                 type = Type::getInt32Ty(context);
@@ -716,7 +716,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             auto iter = user_type->properties.find(n->property_name);
             int property_access = iter->second; //user_type.second.second.at(static_cast<unsigned>(std::distance(std::begin(user_type.second.first), iter)));
 
-            if (property_access == Node::PRIVATE) {
+            if (property_access == Node::PRIVATE || property_access == Node::PROTECTED) {
                 error(n->location.line, "property '" + n->property_name + "' of object '" + n->var_name + "' is private");
             }
 
@@ -753,9 +753,9 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             Value *ptr;
             auto user_type = user_types.at(n->user_type);
             auto iter = user_type->properties.find(n->property_name);
-            int property_access = iter->second; //user_type.second.second.at(static_cast<unsigned>(std::distance(std::begin(user_type.second.first), iter)));
+            int property_access = iter->second;
 
-            if (n->var_name != "this" && property_access == Node::PRIVATE) {
+            if (n->var_name != "this" && (property_access == Node::PRIVATE || property_access == Node::PROTECTED)) {
                 error(n->location.line, "property '" + n->property_name + "' of object '" + n->var_name + "' is private");
             }
 
@@ -820,10 +820,21 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                 emitLocation(n);
             }
 
-            auto method = user_types.at(table.at(n->var_name)->getType()->getStructName())->methods.at(n->property_name);
+            auto object = table.at(n->var_name);
+            while (object->getType()->isPointerTy()) {
+                Value *temp = builder->CreateLoad(object);
+                object = temp;
+            }
+
+            std::shared_ptr<Method> method = nullptr;
+            for (auto &&user_type : user_types) {
+                if (user_type.second->llvm_type == static_cast<StructType *>(object->getType())) {
+                    method = user_type.second->methods.at(n->property_name);
+                }
+            }
             Function *callee = method->prototype; // get the function's prototype
 
-            if (n->var_name != "this" && method->access_type == Node::PRIVATE) {
+            if (n->var_name != "this" && (method->access_type == Node::PRIVATE || method->access_type == Node::PROTECTED)) {
                 error(n->location.line, "method '" + n->property_name + "' of object '" + n->var_name + "' is private");
             }
 
@@ -873,7 +884,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             auto method = user_types.at(table.at(n->var_name)->getType()->getStructName())->methods.at(n->property_name);
             Function *callee = method->prototype; // get the function's prototype
 
-            if (n->var_name != "this" && method->access_type == Node::PRIVATE) {
+            if (n->var_name != "this" && (method->access_type == Node::PRIVATE || method->access_type == Node::PROTECTED)) {
                 error(n->location.line, "method '" + n->property_name + "' of object returned by function '" + n->var_name + "' is private");
             }
 
@@ -915,7 +926,8 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                 emitLocation(n);
             }
 
-            Function *callee = functions.at(n->var_name); // get the function's prototype
+            auto method = user_types.at(n->var_name)->methods.at(n->var_name);
+            Function *callee = method->prototype; // get the function's prototype
 
             if (callee->arg_size() != n->func_call_args.size() && callee->arg_size()-n->func_call_args.size()>1) { // check number of arguments in prototype and in calling
                 error(
@@ -1752,9 +1764,9 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
 
                     auto user_type = user_types.at(temp->getType()->getStructName().str());
                     auto iter = user_type->properties.find(n->property_name);
-                    int property_access = iter->second; //user_type.second.second.at(static_cast<unsigned>(std::distance(std::begin(user_type.second.first),iter)));
+                    int property_access = iter->second;
 
-                    if (n->var_name != "this" && property_access == Node::PRIVATE) {
+                    if (n->var_name != "this" && (property_access == Node::PRIVATE || property_access == Node::PROTECTED)) {
                         error(n->location.line, "property '" + n->property_name + "' of object '" + n->var_name + "' is private");
                     }
 
@@ -1872,6 +1884,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             }
 
             StructType* class_type = StructType::create(context, n->var_name);
+            class_type->setName(n->var_name);
             class_type->setBody(properties_types);
 
             auto class_prototype = std::make_shared<ClassDefinition>(n->var_name, class_type);
@@ -2492,7 +2505,7 @@ DIType *Generator::getDebugType(Type *ty) {
     }
 }
 
-DISubroutineType *Generator::CreateFunctionType(std::vector<Type *> args, DIFile *Unit) {
+DISubroutineType *Generator::CreateFunctionType(std::vector<Type *> args) {
     std::vector<Metadata *> types;
     for (auto &&type : args) {
         types.emplace_back(getDebugType(type));

@@ -5,7 +5,6 @@
 #include "lexer.h"
 #include <iostream>
 #include <cstring>
-#include <string>
 
 void Lexer::load(std::vector<char> c) {
     ch = ' ';
