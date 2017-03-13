@@ -349,7 +349,12 @@ std::shared_ptr<Node> Parser::test() {
             if (lexer->sym == Lexer::EQUAL) {
                 lexer->next_token();
                 operations.emplace_back(Node::LESS_EQUAL);
-            } else operations.emplace_back(Node::LESS);
+            } else if (lexer->sym == Lexer::ID || lexer->sym == Lexer::FUNCTION_ID
+                || lexer->sym == Lexer::NUM_I || lexer->sym == Lexer::NUM_F || lexer->sym == Lexer::STR) {
+                operations.emplace_back(Node::LESS);
+            } else {
+                error("expected '=' or operand");
+            }
 
             while (true) {
                 operands.emplace_back(sum());
@@ -360,10 +365,12 @@ std::shared_ptr<Node> Parser::test() {
                     if (lexer->sym == Lexer::EQUAL) {
                         lexer->next_token();
                         operations.emplace_back(Node::LESS_EQUAL);
-                        continue;
+                    } else if (lexer->sym == Lexer::ID || lexer->sym == Lexer::FUNCTION_ID
+                             || lexer->sym == Lexer::NUM_I || lexer->sym == Lexer::NUM_F || lexer->sym == Lexer::STR) {
+                        operations.emplace_back(Node::LESS);
+                    } else {
+                        error("expected '=' or operand");
                     }
-
-                    operations.emplace_back(Node::LESS);
                     continue;
                 }
 
@@ -394,7 +401,12 @@ std::shared_ptr<Node> Parser::test() {
             if (lexer->sym == Lexer::EQUAL) {
                 lexer->next_token();
                 operations.emplace_back(Node::MORE_EQUAL);
-            } else operations.emplace_back(Node::MORE);
+            } else if (lexer->sym == Lexer::ID || lexer->sym == Lexer::FUNCTION_ID
+                       || lexer->sym == Lexer::NUM_I || lexer->sym == Lexer::NUM_F || lexer->sym == Lexer::STR) {
+                operations.emplace_back(Node::MORE);
+            } else {
+                error("expected '=' or operand");
+            }
 
             while (true) {
                 operands.emplace_back(sum());
@@ -405,7 +417,11 @@ std::shared_ptr<Node> Parser::test() {
                     if (lexer->sym == Lexer::EQUAL) {
                         lexer->next_token();
                         operations.emplace_back(Node::MORE_EQUAL);
-                        continue;
+                    } else if (lexer->sym == Lexer::ID || lexer->sym == Lexer::FUNCTION_ID
+                               || lexer->sym == Lexer::NUM_I || lexer->sym == Lexer::NUM_F || lexer->sym == Lexer::STR) {
+                        operations.emplace_back(Node::MORE);
+                    } else {
+                        error("expected '=' or operand");
                     }
 
                     operations.emplace_back(Node::MORE);
