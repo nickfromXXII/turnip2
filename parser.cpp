@@ -816,7 +816,17 @@ std::shared_ptr<Node> Parser::statement() {
             if (lexer->sym != Lexer::L_BRACKET) {
                 error("expected '{'");
             }
+                if (lexer->sym == Lexer::INHERIT) {
+                    lexer->next_token();
+                    std::string base_name = lexer->str_val;
+                    lexer->next_token();
 
+                    if (lexer->sym != Lexer::L_BRACKET) {
+                        error("expected '{'");
+                    }
+
+                    x->kind = Node::CLASS_INHERIT;
+                    x->property_name = base_name;
             lexer->next_token(true);
 
             while (true) {

@@ -36,14 +36,14 @@ public:
         VAR_DEF, INIT, DELETE,
         EMPTY, SEQ, EXPR,
         PRINTLN, INPUT,
-        FUNCTION_DEFINE, CLASS_DEFINE
+        FUNCTION_DEFINE, CLASS_DEFINE, CLASS_INHERIT
     };
 
     unsigned short kind;
     std::shared_ptr<class Node> o1, o2, o3;
 
     enum val_type { VOID, INTEGER, FLOATING, STRING, BOOL, USER };
-    enum access_type { PRIVATE, PUBLIC, PROTECTED };
+    enum access_type { PRIVATE, PUBLIC, PROTECTED, DERIVED_TEMP };
 
     int value_type = val_type::VOID;
     std::string user_type = "";

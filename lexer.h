@@ -46,7 +46,7 @@ public:
     std::map<std::string, std::shared_ptr<type>> functions;
 
     enum token_types {
-        USER_TYPE, POINT,
+        USER_TYPE, POINT, INHERIT,
         NUM_I, NUM_F, STR, ID, FUNCTION_ID,
         ARRAY, OF, INT, FLOAT, STRING, BOOL,
         CLASS, PRIVATE, PUBLIC, PROTECTED,

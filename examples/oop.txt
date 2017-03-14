@@ -12,16 +12,23 @@ class Int {
     public function set(i: int) {
         this.value = i;
     }
+};
+
+class Number <- Int {
+    public function Number(val: int) {
+        this.value = val;
+    }
 
     public function add(i: int) : int {
         this.value = this.value + i;
         return this.value;
     }
+
 };
 
-function foo(i: Int) : int
+function foo(n: Number) : int
 {
-    i.set(7); # correct
+    n.set(7); # correct
 }
 
 function test() : Int {

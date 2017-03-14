@@ -111,6 +111,12 @@ void Lexer::next_token(bool ignore) {
             break;
         case '<':
             getc();
+            if (ch == '-') {
+                sym = INHERIT;
+                getc();
+                break;
+            }
+
             sym = LESS;
             break;
         case '>':
