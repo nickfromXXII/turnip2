@@ -25,13 +25,15 @@ function foo(i: Int) : int
 }
 
 function test() : Int {
-    new I: Int = Int(10);
+    var I: Int = Int(10);
     I.set(1000);
     return I;
 }
 
 function main()  # entry point
 {
-    new I: Int = Int(5);
-    print test().value;
+    var I: Int = Int(5);
+    foo(I);
+    println I.get();
+    println test().value;
 }

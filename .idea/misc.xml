@@ -3,11 +3,7 @@
   <component name="CMakeWorkspace" PROJECT_DIR="$PROJECT_DIR$" />
   <component name="CidrRootsConfiguration">
     <excludeRoots>
-      <file path="$PROJECT_DIR$/CMakeFiles" />
       <file path="$PROJECT_DIR$/cmake-build-debug/CMakeFiles" />
-      <file path="$PROJECT_DIR$/cmake-build-release/CMakeFiles" />
-      <file path="$PROJECT_DIR$/cmake-build/CMakeFiles" />
     </excludeRoots>
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.5.1 (/usr/bin/python3.5)" project-jdk-type="Python SDK" />
 </project>

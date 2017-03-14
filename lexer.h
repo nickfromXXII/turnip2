@@ -6,6 +6,7 @@
 #define TURNIP2_LEXER_H
 
 #include "type.h"
+#include "location.h"
 
 #include <vector>
 #include <fstream>
@@ -29,11 +30,14 @@ public:
     bool fn_defined(const std::string &name);
     bool type_defined(const std::string &name);
 
-    int sym{};
-    int line = 1;
+    int sym;
 
-    int int_val{};
-    double float_val{};
+    unsigned line = 1;
+    unsigned column = 1;
+    Location location;
+
+    int int_val;
+    double float_val;
     std::string str_val;
 
     std::map<std::string, std::pair<std::map<std::string, std::shared_ptr<type>>, std::map<std::string, std::shared_ptr<type>>>> types;
@@ -44,17 +48,18 @@ public:
     enum token_types {
         USER_TYPE, POINT,
         NUM_I, NUM_F, STR, ID, FUNCTION_ID,
-        ARRAY, OF, INT, FLOAT,
+        ARRAY, OF, INT, FLOAT, STRING, BOOL,
         CLASS, PRIVATE, PUBLIC, PROTECTED,
-        IF, NOT, ELSE,
+        IF, ELSE,
+        AND, OR, NOT, TRUE, FALSE,
         WHILE, DO, REPEAT,
-        NEW, DELETE,
+        VAR, DELETE,
         L_ACCESS, R_ACCESS,
         L_BRACKET, R_BRACKET,
         L_PARENT, R_PARENT,
         PLUS, MINUS, STAR, SLASH,
         LESS, MORE, IS, EQUAL, TYPE, SEMICOLON,
-        PRINT, INPUT,
+        PRINTLN, INPUT,
         FUNCTION, RETURN,
         COMMA, EOI
     };
@@ -64,6 +69,8 @@ public:
             {"of", OF},
             {"int", INT},
             {"float", FLOAT},
+            {"string", STRING},
+            {"bool", BOOL},
             {"class", CLASS},
             {"private", PRIVATE},
             {"public", PUBLIC},
@@ -73,11 +80,15 @@ public:
             {"while", WHILE},
             {"do", DO},
             {"repeat", REPEAT},
-            {"new", NEW},
+            {"var", VAR},
             {"del", DELETE},
             {"is", IS},
+            {"and", AND},
+            {"or", OR},
             {"not", NOT},
-            {"print", PRINT},
+            {"true", TRUE},
+            {"false", FALSE},
+            {"println", PRINTLN},
             {"input", INPUT},
             {"function", FUNCTION},
             {"return", RETURN}
