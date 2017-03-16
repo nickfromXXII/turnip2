@@ -5,8 +5,8 @@
 #ifndef TURNIP2_GENERATOR_H
 #define TURNIP2_GENERATOR_H
 
-#include "node.h"
-#include <map>
+#include "utilities.h"
+#include <unordered_map>
 #include <stack>
 #include <memory>
 #include <string>
@@ -22,14 +22,17 @@
 #include <llvm/IR/LegacyPassManager.h>
 
 using namespace llvm;
+using namespace turnip2;
 
 class Generator {
     void error(unsigned line, const std::string &e);
+
     std::string file;
 
     class Method {
     public:
         Method(Function *p = nullptr, unsigned short a = Node::PRIVATE) : prototype(p), access_type(a) {}
+
         Function *prototype;
         unsigned short access_type;
     };
@@ -37,51 +40,57 @@ class Generator {
     class ClassDefinition {
     public:
         ClassDefinition(const std::string &n = "", StructType *ty = nullptr) : name(n), llvm_type(ty) {}
+
         std::string name;
         StructType *llvm_type;
 
-        std::map<std::string, unsigned short> properties;
-        std::map<std::string, std::shared_ptr<Method>> methods;
+        std::unordered_map<std::string, unsigned short> properties;
+        std::unordered_map<std::string, std::shared_ptr<Method>> methods;
     };
 
-    std::map<std::string, std::shared_ptr<ClassDefinition>> user_types;
-    std::map<std::string, Value *> table;
-    std::map<std::string, Value *> array_sizes;
-    std::map<std::string, Function *> functions;
+    std::unordered_map<std::string, std::shared_ptr<ClassDefinition>> user_types;
+    std::unordered_map<std::string, Value *> table;
+    std::unordered_map<std::string, Value *> array_sizes;
+    std::unordered_map<std::string, Function *> functions;
     LLVMContext context;
     std::vector<std::string> last_vars;
 
     std::unique_ptr<IRBuilder<>> builder;
 
-    std::stack<Value*> stack;
+    std::stack<Value *> stack;
     std::unique_ptr<legacy::FunctionPassManager> passmgr;
     bool optimize;
 
-    std::vector<Type*> printfArgs;
+    std::vector<Type *> printfArgs;
     FunctionType *printfType;
     Constant *printf;
 
-    std::vector<Type*> scanfArgs;
+    std::vector<Type *> scanfArgs;
     FunctionType *scanfType;
     Constant *scanf;
 
     bool io_using = false;
+
     void use_io();
 
     bool generateDI;
     DICompileUnit *compileUnit;
 
     DIType *getDebugType(Type *ty);
+
     std::vector<DIScope *> lexical_blocks;
-    std::map<std::shared_ptr<Node>, DIScope *> func_scopes;
+    std::unordered_map<std::shared_ptr<Node>, DIScope *> func_scopes;
     DIFile *unit;
 
     DISubroutineType *CreateFunctionType(std::vector<Type *> args);
+
     void emitLocation(std::shared_ptr<Node> n);
 
 public:
     Generator(bool opt, bool genDI, const std::string &f);
-    void generate(const std::shared_ptr<Node>& n);
+
+    void generate(const std::shared_ptr<Node> &n);
+
     std::unique_ptr<Module> module;
     std::unique_ptr<DIBuilder> dbuilder;
 

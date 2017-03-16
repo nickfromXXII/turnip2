@@ -6,9 +6,11 @@
 #define TURNIP2_PARSER_H
 
 #include "lexer.h"
-#include "node.h"
+#include "utilities.h"
 
 #include <vector>
+
+using namespace turnip2;
 
 class Parser {
     Lexer *lexer;
