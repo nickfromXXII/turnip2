@@ -16,11 +16,11 @@ class Int { // base class
 
 class Number <- Int { // derived class
     public function Number(val: int) {
-        this.value = val;
+        this.set(val);
     }
 
     public function add(i: int) : int {
-        this.value = this.value + i;
+        this.set(this.get() + i);
         return this.value;
     }
 };

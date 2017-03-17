@@ -919,6 +919,27 @@ std::shared_ptr<Node> Parser::statement() {
                     break;
                 }
             }
+
+            // workaround to make calling of methods from other methods of this class possible
+            std::unordered_map<std::string, std::pair<int, std::shared_ptr<Node>>> temp1;
+            std::unordered_map<std::string, std::pair<int, std::shared_ptr<Node>>> temp2;
+            for (auto iterator = x->class_def_methods.begin(); iterator != x->class_def_methods.find(class_name); ++iterator) {
+                temp1.emplace(*iterator);
+            }
+            for (auto iterator = ++x->class_def_methods.find(class_name); iterator != x->class_def_methods.end(); ++iterator) {
+                temp2.emplace(*iterator);
+            }
+            std::unordered_map<std::string, std::pair<int, std::shared_ptr<Node>>> temp;
+            for (auto &&item : temp1) {
+                temp.emplace(item);
+            }
+            for (auto &&item : temp2) {
+                temp.emplace(item);
+            }
+            temp.emplace(*x->class_def_methods.find(class_name));
+            x->class_def_methods.clear();
+            x->class_def_methods = temp;
+
             lexer->vars.erase("this");
             break;
         }
