@@ -6,9 +6,11 @@
 #define TURNIP2_PARSER_H
 
 #include "lexer.h"
-#include "node.h"
+#include "utilities.h"
 
 #include <vector>
+
+using namespace turnip2;
 
 class Parser {
     Lexer *lexer;
@@ -24,6 +26,7 @@ class Parser {
     std::shared_ptr<Node> function_arg();
     std::shared_ptr<Node> function_args();
     std::shared_ptr<Node> function_def();
+    std::shared_ptr<Node> method_def(const std::string &class_name);
     std::shared_ptr<Node> statement();
 
 public:

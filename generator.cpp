@@ -1879,7 +1879,6 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                             properties_types.emplace_back(Type::getInt1Ty(context));
                             break;
                     }
-                    //table.emplace(properties_names.back(), builder->CreateAlloca(properties_types.back()));
                 }
             }
 
@@ -1893,7 +1892,7 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
             }
             user_types.emplace(n->var_name, class_prototype);
 
-            for (auto &&defProperty : n->class_def_properties) { // then, generate methods
+            for (auto &&defProperty : n->class_def_methods) { // then, generate methods
                 if (defProperty.second.second->kind == Node::FUNCTION_DEFINE) {
                     FunctionType *type;
 
@@ -2040,10 +2039,6 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                     }
                 }
             }
-
-            //for (auto &&item : properties_names) {
-            //    table.erase(item);
-            //}
 
             break;
         }
