@@ -8,7 +8,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1z")
 include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
-set(SOURCE_FILES main.cpp lexer.cpp lexer.h parser.cpp parser.h node.h generator.cpp generator.h type.h location.h)
+set(SOURCE_FILES main.cpp lexer.cpp lexer.h parser.cpp parser.h utilities.h generator.cpp generator.h location.h)
 add_executable(turnip2 ${SOURCE_FILES})
 
 set(LIBS

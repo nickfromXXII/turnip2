@@ -42,10 +42,10 @@ std::shared_ptr<Node> Parser::term() {
             x->property_name = lexer->str_val;
 
             try {
-                lexer->types.at(lexer->vars.at(x->var_name)->user_type_name).first.at(x->property_name);
+                lexer->types.at(lexer->vars.at(x->var_name)->user_type_name)->properties.at(x->property_name);
             } catch (std::out_of_range) {
                 try {
-                    lexer->types.at(lexer->vars.at(x->var_name)->user_type_name).second.at(x->property_name);
+                    lexer->types.at(lexer->vars.at(x->var_name)->user_type_name)->methods.at(x->property_name);
                 }
                 catch(std::out_of_range) {
                     error(
@@ -67,8 +67,8 @@ std::shared_ptr<Node> Parser::term() {
             if (lexer->sym == Lexer::L_PARENT) {
                 x->kind = Node::METHOD_CALL;
 
-                x->value_type = lexer->types.at(x->user_type).first.at(x->property_name)->value_type;
-                x->user_type = lexer->types.at(x->user_type).first.at(x->property_name)->user_type_name;
+                x->value_type = lexer->types.at(x->user_type)->methods.at(x->property_name)->type->value_type;
+                x->user_type = lexer->types.at(x->user_type)->methods.at(x->property_name)->type->user_type_name;
 
                 lexer->next_token();
                 while (true) {
@@ -188,10 +188,10 @@ std::shared_ptr<Node> Parser::term() {
             x->property_name = lexer->str_val;
 
             try {
-                lexer->types.at(lexer->functions.at(x->var_name)->user_type_name).first.at(x->property_name);
+                lexer->types.at(lexer->functions.at(x->var_name)->user_type_name)->properties.at(x->property_name);
             } catch (std::out_of_range) {
                 try {
-                    lexer->types.at(lexer->functions.at(x->var_name)->user_type_name).second.at(x->property_name);
+                    lexer->types.at(lexer->functions.at(x->var_name)->user_type_name)->methods.at(x->property_name);
                 }
                 catch(std::out_of_range) {
                     error(
@@ -213,8 +213,8 @@ std::shared_ptr<Node> Parser::term() {
             if (lexer->sym == Lexer::L_PARENT) {
                 x->kind = Node::FUNC_OBJ_METHOD_CALL;
 
-                x->value_type = lexer->types.at(x->user_type).first.at(x->property_name)->value_type;
-                x->user_type = lexer->types.at(x->user_type).first.at(x->property_name)->user_type_name;
+                x->value_type = lexer->types.at(x->user_type)->methods.at(x->property_name)->type->value_type;
+                x->user_type = lexer->types.at(x->user_type)->methods.at(x->property_name)->type->user_type_name;
 
                 lexer->next_token();
                 while (true) {
@@ -311,7 +311,7 @@ std::shared_ptr<Node> Parser::sum() {
     while (lexer->sym == Lexer::PLUS || lexer->sym == Lexer::MINUS) {
         t = x;
 
-        int kind = -1;
+        unsigned short kind = 255;
         switch (lexer->sym) {
             case Lexer::PLUS: {
                 kind = Node::ADD;
@@ -341,50 +341,120 @@ std::shared_ptr<Node> Parser::test() {
 
     switch (lexer->sym) {
         case Lexer::LESS: {
-            t = x;
-            x = std::make_shared<Node>(Node::LESS_TEST);
-            x->location = lexer->location;
-
             lexer->next_token();
 
+            std::vector<std::shared_ptr<Node>> operands = { x };
+            std::vector<unsigned> operations;
+
             if (lexer->sym == Lexer::EQUAL) {
-                x = std::make_shared<Node>(Node::LESS_IS_TEST);
-                x->location = lexer->location;
                 lexer->next_token();
+                operations.emplace_back(Node::LESS_EQUAL);
+            } else if (lexer->sym == Lexer::ID || lexer->sym == Lexer::FUNCTION_ID
+                || lexer->sym == Lexer::NUM_I || lexer->sym == Lexer::NUM_F || lexer->sym == Lexer::STR) {
+                operations.emplace_back(Node::LESS);
+            } else {
+                error("expected '=' or operand");
             }
 
-            x->o1 = t;
-            x->o2 = sum();
+            while (true) {
+                operands.emplace_back(sum());
+
+                if (lexer->sym == Lexer::LESS) {
+                    lexer->next_token();
+
+                    if (lexer->sym == Lexer::EQUAL) {
+                        lexer->next_token();
+                        operations.emplace_back(Node::LESS_EQUAL);
+                    } else if (lexer->sym == Lexer::ID || lexer->sym == Lexer::FUNCTION_ID
+                             || lexer->sym == Lexer::NUM_I || lexer->sym == Lexer::NUM_F || lexer->sym == Lexer::STR) {
+                        operations.emplace_back(Node::LESS);
+                    } else {
+                        error("expected '=' or operand");
+                    }
+                    continue;
+                }
+
+                break;
+            }
+
+            std::vector<std::shared_ptr<Node>> tests;
+            for (std::vector<std::shared_ptr<Node>>::size_type i = 0; i != operands.size()-1; i++) {
+                tests.emplace_back(std::make_shared<Node>(operations.at(i), operands.at(i), operands.at(i+1)));
+            }
+
+            x = nullptr;
+            for (auto &&test : tests) {
+                if (x != nullptr) {
+                    t = x;
+                    x = std::make_shared<Node>(Node::AND, t, test);
+                } else x = test;
+            }
 
             break;
         }
         case Lexer::MORE: {
-            t = x;
-            x = std::make_shared<Node>(Node::MORE_TEST);
-            x->location = lexer->location;
-
             lexer->next_token();
 
+            std::vector<std::shared_ptr<Node>> operands = { x };
+            std::vector<unsigned> operations;
+
             if (lexer->sym == Lexer::EQUAL) {
-                x = std::make_shared<Node>(Node::MORE_IS_TEST);
-                x->location = lexer->location;
                 lexer->next_token();
+                operations.emplace_back(Node::MORE_EQUAL);
+            } else if (lexer->sym == Lexer::ID || lexer->sym == Lexer::FUNCTION_ID
+                       || lexer->sym == Lexer::NUM_I || lexer->sym == Lexer::NUM_F || lexer->sym == Lexer::STR) {
+                operations.emplace_back(Node::MORE);
+            } else {
+                error("expected '=' or operand");
             }
 
-            x->o1 = t;
-            x->o2 = sum();
+            while (true) {
+                operands.emplace_back(sum());
+
+                if (lexer->sym == Lexer::MORE) {
+                    lexer->next_token();
+
+                    if (lexer->sym == Lexer::EQUAL) {
+                        lexer->next_token();
+                        operations.emplace_back(Node::MORE_EQUAL);
+                    } else if (lexer->sym == Lexer::ID || lexer->sym == Lexer::FUNCTION_ID
+                               || lexer->sym == Lexer::NUM_I || lexer->sym == Lexer::NUM_F || lexer->sym == Lexer::STR) {
+                        operations.emplace_back(Node::MORE);
+                    } else {
+                        error("expected '=' or operand");
+                    }
+
+                    operations.emplace_back(Node::MORE);
+                    continue;
+                }
+
+                break;
+            }
+
+            std::vector<std::shared_ptr<Node>> tests;
+            for (std::vector<std::shared_ptr<Node>>::size_type i = 0; i != operands.size()-1; i++) {
+                tests.emplace_back(std::make_shared<Node>(operations.at(i), operands.at(i), operands.at(i+1)));
+            }
+
+            x = nullptr;
+            for (auto &&test : tests) {
+                if (x != nullptr) {
+                    t = x;
+                    x = std::make_shared<Node>(Node::AND, t, test);
+                } else x = test;
+            }
 
             break;
         }
         case Lexer::IS: {
             t = x;
-            x = std::make_shared<Node>(Node::IS_TEST);
+            x = std::make_shared<Node>(Node::EQUAL);
             x->location = lexer->location;
 
             lexer->next_token();
 
             if (lexer->sym == Lexer::NOT) {
-                x = std::make_shared<Node>(Node::IS_NOT_TEST);
+                x = std::make_shared<Node>(Node::NOT_EQUAL);
                 x->location = lexer->location;
                 lexer->next_token();
             }
@@ -462,7 +532,7 @@ std::shared_ptr<Node> Parser::expr() {
                 x->property_name = t->property_name;
 
                 try {
-                    lexer->types.at(lexer->vars.at(x->var_name)->user_type_name).first.at(x->property_name);
+                    lexer->types.at(lexer->vars.at(x->var_name)->user_type_name)->properties.at(x->property_name);
                 } catch (std::out_of_range) {
                     error(
                             "object '" +
@@ -549,17 +619,19 @@ std::shared_ptr<Node> Parser::var_def(bool isClassProperty) {
 
                 x->o1 = arr;
 
-                lexer->arrays.emplace(var_name, std::make_shared<type>(x->value_type, x->user_type));
+                lexer->arrays.emplace(var_name, std::make_shared<types::Type>(x->value_type, x->user_type));
             } else {
                 x->kind = Node::INIT;
                 x->o1 = expr();
             }
         }
-        lexer->vars.emplace(var_name, std::make_shared<type>(x->value_type, x->user_type));
+        lexer->vars.emplace(var_name, std::make_shared<types::Type>(x->value_type, x->user_type));
     }
 
     if (lexer->sym != Lexer::SEMICOLON) {
-        error("expected ';'");
+        if (!(isClassProperty && (lexer->sym == Lexer::INT ||lexer->sym == Lexer::FLOAT || lexer->sym == Lexer::STRING || lexer->sym == Lexer::BOOL || lexer->sym == Lexer::USER_TYPE))) {
+            error("expected ';'");
+        }
     }
 
     return x;
@@ -613,7 +685,7 @@ std::shared_ptr<Node> Parser::function_arg() {
             break;
     }
 
-    lexer->vars[var_name] = std::make_shared<type>(type(n->value_type, n->user_type));
+    lexer->vars[var_name] = std::make_shared<types::Type>(types::Type(n->value_type, n->user_type));
     lexer->next_token();
 
     return n;
@@ -650,7 +722,7 @@ std::shared_ptr<Node> Parser::function_args() {
             break;
         }
 
-        n->func_def_args.emplace(arg->var_name, std::make_shared<type>(arg->value_type, arg->user_type));
+        n->func_def_args.emplace(arg->var_name, std::make_shared<types::Type>(arg->value_type, arg->user_type));
     }
 
     if (lexer->sym != Lexer::R_PARENT) {
@@ -707,8 +779,63 @@ std::shared_ptr<Node> Parser::function_def() {
         }
         lexer->next_token();
     }
-    lexer->functions.emplace(func_name, std::make_shared<type>(x->value_type, x->user_type));
+    lexer->functions.emplace(func_name, std::make_shared<types::Type>(x->value_type, x->user_type));
 
+    x->o2 = statement();
+
+    for (auto &&var : last_vars) {
+        lexer->vars.erase(var);
+        last_vars.erase(std::find(std::cbegin(last_vars), std::cend(last_vars), var));
+    }
+
+    return x;
+}
+
+std::shared_ptr<Node> Parser::method_def(const std::string &class_name) {
+    lexer->next_token(true); // eat 'function' keyword
+    std::string func_name = lexer->str_val;
+
+    //if (lexer->fn_defined(func_name))
+    //    error("function '" + func_name + "' is already defined");
+
+    std::shared_ptr<Node> x = std::make_shared<Node>(Node::FUNCTION_DEFINE);
+    x->location = lexer->location;
+    x->var_name = func_name;
+
+    lexer->next_token();
+    x->o1 = function_args();
+
+    if (lexer->sym != Lexer::TYPE) {
+        x->value_type = Node::VOID;
+    } else {
+        lexer->next_token();
+
+        if (lexer->sym != Lexer::INT && lexer->sym != Lexer::FLOAT
+            && lexer->sym != Lexer::STRING && lexer->sym != Lexer::BOOL
+            && lexer->sym != Lexer::USER_TYPE) {
+            error("expected type of return value");
+        }
+
+        switch (lexer->sym) {
+            case Lexer::INT:
+                x->value_type = Node::INTEGER;
+                break;
+            case Lexer::FLOAT:
+                x->value_type = Node::FLOATING;
+                break;
+            case Lexer::STRING:
+                x->value_type = Node::STRING;
+                break;
+            case Lexer::BOOL:
+                x->value_type = Node::BOOL;
+                break;
+            case Lexer::USER_TYPE:
+                x->value_type = Node::USER;
+                x->user_type = lexer->str_val;
+                break;
+        }
+        lexer->next_token();
+    }
     x->o2 = statement();
 
     for (auto &&var : last_vars) {
@@ -734,20 +861,71 @@ std::shared_ptr<Node> Parser::statement() {
                 error("type '" + class_name + "' is already defined");
 
             x->var_name = class_name;
-            lexer->vars.emplace("this", std::make_shared<type>(Node::USER, class_name));
+            lexer->vars.emplace("this", std::make_shared<types::Type>(Node::USER, class_name));
 
-            std::map<std::string, std::shared_ptr<type>> properties;
-            std::map<std::string, std::shared_ptr<type>> methods;
-            lexer->types.emplace(class_name, std::make_pair(properties, methods));
+            std::unordered_map<std::string, std::shared_ptr<types::Member>> properties;
+            std::unordered_map<std::string, std::shared_ptr<types::Member>> methods;
+            lexer->types.emplace(class_name, std::make_shared<types::AbstractType>(properties, methods));
 
             lexer->next_token();
             if (lexer->sym != Lexer::L_BRACKET) {
-                error("expected '{'");
-            }
+                if (lexer->sym == Lexer::INHERIT) {
+                    lexer->next_token();
+                    std::string base_class_name = lexer->str_val;
+                    lexer->next_token();
 
+                    if (lexer->sym != Lexer::L_BRACKET) {
+                        error("expected '{'");
+                    }
+
+                    //x = std::make_shared<Node>(Node::CLASS_INHERIT);
+                    //x->kind = Node::CLASS_INHERIT;
+                    //x->var_name = class_name;
+                    //x->property_name = base_class_name;
+
+                    auto base_class = lexer->types.at(base_class_name);
+                    lexer->types.at(class_name) = base_class;
+                    properties = base_class->properties;
+                    methods = base_class->methods;
+                    methods.erase(base_class_name);
+
+                    for (auto &&property : properties) {
+                        x->class_def_properties.emplace(
+                            property.first,
+                            std::make_pair(
+                                base_class->properties.at(property.first)->access_type,
+                                base_class->properties.at(property.first)->ast_node
+                            )
+                        );
+                    }
+                    for (auto &&method : methods) {
+                        for (auto &&iter : method.second->ast_node->func_def_args) {
+                            if (iter.first == "this") {
+                                iter.second->user_type_name = class_name;
+                            }
+                        }
+                        x->class_def_methods.emplace_hint(
+                            std::begin(x->class_def_methods),
+                            method.first,
+                            std::make_pair(
+                                base_class->methods.at(method.first)->access_type,
+                                base_class->methods.at(method.first)->ast_node
+                            )
+                        );
+                    }
+                } else {
+                    error("expected '{'");
+                }
+            }
             lexer->next_token(true);
 
             while (true) {
+                bool override = false;
+                if (lexer->sym == Lexer::OVERRIDE) {
+                    lexer->next_token(true);
+                    override = true;
+                }
+
                 int access_type = Node::PRIVATE;
                 if (lexer->sym == Lexer::PRIVATE || lexer->sym == Lexer::PUBLIC || lexer->sym == Lexer::PROTECTED) {
                     switch (lexer->sym)
@@ -766,16 +944,41 @@ std::shared_ptr<Node> Parser::statement() {
                 }
 
                 if (lexer->sym == Lexer::FUNCTION) {
-                    std::shared_ptr<Node> method = function_def();
-                    x->class_def_properties.emplace(method->var_name, std::make_pair(access_type, method));
-                    properties.emplace(method->var_name, std::make_shared<type>(method->value_type, method->user_type));
-                    lexer->types[class_name] = std::make_pair(properties, methods);
+                    std::shared_ptr<Node> method_node = method_def(class_name);
+                    std::shared_ptr<types::Member> method = std::make_shared<types::Member>(
+                        std::make_shared<types::Type>(method_node->value_type, method_node->user_type),
+                        method_node,
+                        access_type
+                    );
+                    if (override) {
+                        x->class_def_methods.insert_or_assign(method_node->var_name,
+                                                              std::make_pair(access_type, method_node));
+                        methods.insert_or_assign(method_node->var_name, method);
+                    } else {
+                        bool method_defined =
+                            x->class_def_methods.find(method_node->var_name) != std::cend(x->class_def_methods)
+                                || methods.find(method_node->var_name) != std::cend(methods);
+
+                        if (method_defined) {
+                            error("method '" + method_node->var_name + "' of class '" + class_name + "' is already defined, use 'override' keyword to override it");
+                        }
+
+                        x->class_def_methods.emplace(method_node->var_name,
+                                                     std::make_pair(access_type, method_node));
+                        methods.emplace(method_node->var_name, method);
+                    }
+                    lexer->types.at(class_name)->methods = methods;
                 }
                 else if (lexer->sym == Lexer::ID) {
-                    std::shared_ptr<Node> property = var_def(true);
-                    properties.emplace(property->var_name, std::make_shared<type>(property->value_type, property->user_type));
-                    lexer->types[class_name] = std::make_pair(properties, methods);
-                    x->class_def_properties.emplace(property->var_name, std::make_pair(access_type, property));
+                    std::shared_ptr<Node> property_node = var_def(true);
+                    std::shared_ptr<types::Member> property = std::make_shared<types::Member>(
+                        std::make_shared<types::Type>(property_node->value_type, property_node->user_type),
+                        property_node,
+                        access_type
+                    );
+                    x->class_def_properties.emplace(property_node->var_name, std::make_pair(access_type, property_node));
+                    properties.emplace(property_node->var_name, property);
+                    lexer->types.at(class_name)->properties = properties;
 
                     lexer->next_token();
                     if (lexer->sym != Lexer::SEMICOLON) {
@@ -788,14 +991,31 @@ std::shared_ptr<Node> Parser::statement() {
                         error("expected ';'");
                     }
 
-                    //for (auto &&property : x->class_def_properties) {
-                    //    lexer->vars.erase(property.first);
-                    //}
-
                     lexer->next_token();
                     break;
                 }
             }
+
+            // workaround to make calling of methods from other methods of this class possible
+            std::unordered_map<std::string, std::pair<int, std::shared_ptr<Node>>> temp1;
+            std::unordered_map<std::string, std::pair<int, std::shared_ptr<Node>>> temp2;
+            for (auto iterator = x->class_def_methods.begin(); iterator != x->class_def_methods.find(class_name); ++iterator) {
+                temp1.emplace(*iterator);
+            }
+            for (auto iterator = ++x->class_def_methods.find(class_name); iterator != x->class_def_methods.end(); ++iterator) {
+                temp2.emplace(*iterator);
+            }
+            std::unordered_map<std::string, std::pair<int, std::shared_ptr<Node>>> temp;
+            for (auto &&item : temp1) {
+                temp.emplace(item);
+            }
+            for (auto &&item : temp2) {
+                temp.emplace(item);
+            }
+            temp.emplace(*x->class_def_methods.find(class_name));
+            x->class_def_methods.clear();
+            x->class_def_methods = temp;
+
             lexer->vars.erase("this");
             break;
         }
@@ -874,7 +1094,7 @@ std::shared_ptr<Node> Parser::statement() {
             lexer->next_token();
 
             x->o1 = sum(); //paren_expr();
-            lexer->vars.try_emplace("index", std::make_shared<type>(Node::INTEGER, ""));
+            lexer->vars.try_emplace("index", std::make_shared<types::Type>(Node::INTEGER, ""));
             x->o2 = statement();
 
             break;

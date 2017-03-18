@@ -1,4 +1,4 @@
-class Int {
+class Int { // base class
     public value: int;
 
     public function Int(val: int) {
@@ -6,32 +6,40 @@ class Int {
     }
 
     public function get() : int {
+        println "Int::get()";
         return this.value;
     }
 
     public function set(i: int) {
         this.value = i;
     }
+};
+
+class Number <- Int { // derived class
+    public function Number(val: int) {
+        this.set(val);
+    }
+
+    override public function get() : int {
+        println "Number::get()";
+        return this.value;
+    }
 
     public function add(i: int) : int {
-        this.value = this.value + i;
+        this.set(this.get() + i);
         return this.value;
     }
 };
 
-function foo(i: Int) : int
+function foo(n: Number) : int
 {
-    i.set(7); # correct
-}
-
-function test() : Int {
-    var I: Int = Int(10);
-    I.set(1000);
-    return I;
+    n.add(7); # correct
 }
 
 function main()  # entry point
 {
     var I: Int = Int(5);
-    println test().value;
+    var N: Number = Number(I.get());
+    foo(N);
+    println N.get();
 }

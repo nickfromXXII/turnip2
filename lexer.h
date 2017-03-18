@@ -5,20 +5,21 @@
 #ifndef TURNIP2_LEXER_H
 #define TURNIP2_LEXER_H
 
-#include "type.h"
 #include "location.h"
+#include "utilities.h"
 
 #include <vector>
 #include <fstream>
-#include <map>
+#include <unordered_map>
 #include <memory>
+
+using namespace turnip2;
 
 class Lexer {
     std::vector<char> code;
     std::vector<char>::iterator iter;
 
     char ch;
-
     void error(const std::string &e);
     void getc();
 
@@ -40,16 +41,16 @@ public:
     double float_val;
     std::string str_val;
 
-    std::map<std::string, std::pair<std::map<std::string, std::shared_ptr<type>>, std::map<std::string, std::shared_ptr<type>>>> types;
-    std::map<std::string, std::shared_ptr<type>> vars;
-    std::map<std::string, std::shared_ptr<type>> arrays;
-    std::map<std::string, std::shared_ptr<type>> functions;
+    std::unordered_map<std::string, std::shared_ptr<types::AbstractType>> types;
+    std::unordered_map<std::string, std::shared_ptr<types::Type>> vars;
+    std::unordered_map<std::string, std::shared_ptr<types::Type>> arrays;
+    std::unordered_map<std::string, std::shared_ptr<types::Type>> functions;
 
     enum token_types {
-        USER_TYPE, POINT,
+        USER_TYPE, POINT, INHERIT,
         NUM_I, NUM_F, STR, ID, FUNCTION_ID,
         ARRAY, OF, INT, FLOAT, STRING, BOOL,
-        CLASS, PRIVATE, PUBLIC, PROTECTED,
+        CLASS, PRIVATE, PUBLIC, PROTECTED, OVERRIDE,
         IF, ELSE,
         AND, OR, NOT, TRUE, FALSE,
         WHILE, DO, REPEAT,
@@ -64,34 +65,35 @@ public:
         COMMA, EOI
     };
 
-    std::map<std::string, int> WORDS = {
-            {"array", ARRAY},
-            {"of", OF},
-            {"int", INT},
-            {"float", FLOAT},
-            {"string", STRING},
-            {"bool", BOOL},
-            {"class", CLASS},
-            {"private", PRIVATE},
-            {"public", PUBLIC},
-            {"protected", PROTECTED},
-            {"if", IF},
-            {"else", ELSE},
-            {"while", WHILE},
-            {"do", DO},
-            {"repeat", REPEAT},
-            {"var", VAR},
-            {"del", DELETE},
-            {"is", IS},
-            {"and", AND},
-            {"or", OR},
-            {"not", NOT},
-            {"true", TRUE},
-            {"false", FALSE},
-            {"println", PRINTLN},
-            {"input", INPUT},
-            {"function", FUNCTION},
-            {"return", RETURN}
+    std::unordered_map<std::string, int> WORDS = {
+        {"array",     ARRAY},
+        {"of",        OF},
+        {"int",       INT},
+        {"float",     FLOAT},
+        {"string",    STRING},
+        {"bool",      BOOL},
+        {"class",     CLASS},
+        {"private",   PRIVATE},
+        {"public",    PUBLIC},
+        {"protected", PROTECTED},
+        {"override",  OVERRIDE},
+        {"if",        IF},
+        {"else",      ELSE},
+        {"while",     WHILE},
+        {"do",        DO},
+        {"repeat",    REPEAT},
+        {"var",       VAR},
+        {"del",       DELETE},
+        {"is",        IS},
+        {"and",       AND},
+        {"or",        OR},
+        {"not",       NOT},
+        {"true",      TRUE},
+        {"false",     FALSE},
+        {"println",   PRINTLN},
+        {"input",     INPUT},
+        {"function",  FUNCTION},
+        {"return",    RETURN}
     };
 
 };

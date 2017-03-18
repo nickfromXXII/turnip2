@@ -5,7 +5,6 @@
 #include "lexer.h"
 #include <iostream>
 #include <cstring>
-#include <string>
 
 void Lexer::load(std::vector<char> c) {
     ch = ' ';
@@ -112,6 +111,12 @@ void Lexer::next_token(bool ignore) {
             break;
         case '<':
             getc();
+            if (ch == '-') {
+                sym = INHERIT;
+                getc();
+                break;
+            }
+
             sym = LESS;
             break;
         case '>':
