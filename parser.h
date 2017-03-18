@@ -26,6 +26,7 @@ class Parser {
     std::shared_ptr<Node> function_arg();
     std::shared_ptr<Node> function_args();
     std::shared_ptr<Node> function_def();
+    std::shared_ptr<Node> method_def(const std::string &class_name);
     std::shared_ptr<Node> statement();
 
 public:

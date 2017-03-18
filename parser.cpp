@@ -791,6 +791,61 @@ std::shared_ptr<Node> Parser::function_def() {
     return x;
 }
 
+std::shared_ptr<Node> Parser::method_def(const std::string &class_name) {
+    lexer->next_token(true); // eat 'function' keyword
+    std::string func_name = lexer->str_val;
+
+    //if (lexer->fn_defined(func_name))
+    //    error("function '" + func_name + "' is already defined");
+
+    std::shared_ptr<Node> x = std::make_shared<Node>(Node::FUNCTION_DEFINE);
+    x->location = lexer->location;
+    x->var_name = func_name;
+
+    lexer->next_token();
+    x->o1 = function_args();
+
+    if (lexer->sym != Lexer::TYPE) {
+        x->value_type = Node::VOID;
+    } else {
+        lexer->next_token();
+
+        if (lexer->sym != Lexer::INT && lexer->sym != Lexer::FLOAT
+            && lexer->sym != Lexer::STRING && lexer->sym != Lexer::BOOL
+            && lexer->sym != Lexer::USER_TYPE) {
+            error("expected type of return value");
+        }
+
+        switch (lexer->sym) {
+            case Lexer::INT:
+                x->value_type = Node::INTEGER;
+                break;
+            case Lexer::FLOAT:
+                x->value_type = Node::FLOATING;
+                break;
+            case Lexer::STRING:
+                x->value_type = Node::STRING;
+                break;
+            case Lexer::BOOL:
+                x->value_type = Node::BOOL;
+                break;
+            case Lexer::USER_TYPE:
+                x->value_type = Node::USER;
+                x->user_type = lexer->str_val;
+                break;
+        }
+        lexer->next_token();
+    }
+    x->o2 = statement();
+
+    for (auto &&var : last_vars) {
+        lexer->vars.erase(var);
+        last_vars.erase(std::find(std::cbegin(last_vars), std::cend(last_vars), var));
+    }
+
+    return x;
+}
+
 std::shared_ptr<Node> Parser::statement() {
     std::shared_ptr<Node> t, x;
 
@@ -865,6 +920,12 @@ std::shared_ptr<Node> Parser::statement() {
             lexer->next_token(true);
 
             while (true) {
+                bool override = false;
+                if (lexer->sym == Lexer::OVERRIDE) {
+                    lexer->next_token(true);
+                    override = true;
+                }
+
                 int access_type = Node::PRIVATE;
                 if (lexer->sym == Lexer::PRIVATE || lexer->sym == Lexer::PUBLIC || lexer->sym == Lexer::PROTECTED) {
                     switch (lexer->sym)
@@ -883,14 +944,29 @@ std::shared_ptr<Node> Parser::statement() {
                 }
 
                 if (lexer->sym == Lexer::FUNCTION) {
-                    std::shared_ptr<Node> method_node = function_def();
+                    std::shared_ptr<Node> method_node = method_def(class_name);
                     std::shared_ptr<types::Member> method = std::make_shared<types::Member>(
                         std::make_shared<types::Type>(method_node->value_type, method_node->user_type),
                         method_node,
                         access_type
                     );
-                    x->class_def_methods.emplace(method_node->var_name, std::make_pair(access_type, method_node));
-                    methods.emplace_hint(std::end(methods), method_node->var_name, method);
+                    if (override) {
+                        x->class_def_methods.insert_or_assign(method_node->var_name,
+                                                              std::make_pair(access_type, method_node));
+                        methods.insert_or_assign(method_node->var_name, method);
+                    } else {
+                        bool method_defined =
+                            x->class_def_methods.find(method_node->var_name) != std::cend(x->class_def_methods)
+                                || methods.find(method_node->var_name) != std::cend(methods);
+
+                        if (method_defined) {
+                            error("method '" + method_node->var_name + "' of class '" + class_name + "' is already defined, use 'override' keyword to override it");
+                        }
+
+                        x->class_def_methods.emplace(method_node->var_name,
+                                                     std::make_pair(access_type, method_node));
+                        methods.emplace(method_node->var_name, method);
+                    }
                     lexer->types.at(class_name)->methods = methods;
                 }
                 else if (lexer->sym == Lexer::ID) {

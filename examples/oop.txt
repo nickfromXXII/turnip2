@@ -6,6 +6,7 @@ class Int { // base class
     }
 
     public function get() : int {
+        println "Int::get()";
         return this.value;
     }
 
@@ -17,6 +18,11 @@ class Int { // base class
 class Number <- Int { // derived class
     public function Number(val: int) {
         this.set(val);
+    }
+
+    override public function get() : int {
+        println "Number::get()";
+        return this.value;
     }
 
     public function add(i: int) : int {
