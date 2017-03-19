@@ -234,25 +234,25 @@ std::shared_ptr<Node> Parser::term() {
             x->property_name = lexer->str_val;
 
             try {
-                lexer->types.at(lexer->functions.find(x->var_name)->second->user_type)->properties.at(x->property_name);
+                lexer->types.at(fn->second->user_type)->properties.at(x->property_name);
             } catch (std::out_of_range) {
                 try {
-                    lexer->types.at(lexer->functions.find(x->var_name)->second->user_type)->methods.at(x->property_name);
+                    lexer->types.at(fn->second->user_type)->methods.at(x->property_name);
                 }
                 catch(std::out_of_range) {
                     error(
                             "object returned by function '" +
                             x->var_name +
                             "' of class '" +
-                            lexer->functions.find(x->var_name)->second->user_type +
+                            fn->second->user_type +
                             "' has no member named '" +
                             x->property_name + "'"
                     );
                 }
             }
 
-            x->value_type = lexer->functions.find(x->var_name)->second->value_type;
-            x->user_type = lexer->functions.find(x->var_name)->second->user_type;
+            x->value_type = fn->second->value_type;
+            x->user_type = fn->second->user_type;
 
             lexer->next_token();
 
