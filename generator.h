@@ -51,7 +51,7 @@ class Generator {
     std::unordered_map<std::string, std::shared_ptr<ClassDefinition>> user_types;
     std::unordered_map<std::string, Value *> table;
     std::unordered_map<std::string, Value *> array_sizes;
-    std::unordered_map<std::string, Function *> functions;
+    std::unordered_multimap<std::string, Function *> functions;
     LLVMContext context;
     std::vector<std::string> last_vars;
 

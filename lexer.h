@@ -44,7 +44,7 @@ public:
     std::unordered_map<std::string, std::shared_ptr<types::AbstractType>> types;
     std::unordered_map<std::string, std::shared_ptr<types::Type>> vars;
     std::unordered_map<std::string, std::shared_ptr<types::Type>> arrays;
-    std::unordered_map<std::string, std::shared_ptr<types::Type>> functions;
+    std::unordered_multimap<std::string, std::shared_ptr<Node>> functions;
 
     enum token_types {
         USER_TYPE, POINT, INHERIT,

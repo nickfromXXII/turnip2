@@ -140,9 +140,9 @@ std::shared_ptr<Node> Parser::term() {
     } else if (lexer->sym == Lexer::FUNCTION_ID) {
         x = std::make_shared<Node>(Node::FUNCTION_CALL);
         x->location = lexer->location;
-        x->value_type = lexer->functions.at(lexer->str_val)->value_type;
-        x->user_type = lexer->functions.at(lexer->str_val)->user_type_name;
-        x->var_name = lexer->str_val;
+
+        std::string fn_name = lexer->str_val;
+        x->var_name = fn_name;
 
         lexer->next_token();
         if (lexer->sym != Lexer::L_PARENT) {
@@ -171,8 +171,54 @@ std::shared_ptr<Node> Parser::term() {
         if (lexer->sym != Lexer::R_PARENT) {
             error("expected ')' in arguments list");
         }
-
         lexer->next_token();
+
+        auto fn = std::end(lexer->functions);
+        auto fns = lexer->functions.equal_range(fn_name);
+        for (auto iterator = fns.first; iterator != fns.second; ++iterator) {
+            if (iterator->second->o1->func_def_args.size() == x->func_call_args.size()) {
+                auto def = std::begin(iterator->second->o1->func_def_args);
+                auto call = std::begin(x->func_call_args);
+                unsigned matches = 0;
+                for (; def != std::end(iterator->second->o1->func_def_args); ++def, ++call) {
+                    if (def->second->value_type == call->get()->value_type && def->second->user_type_name == call->get()->user_type) {
+                        matches++;
+                    }
+                }
+                if (matches == iterator->second->o1->func_def_args.size()) {
+                    fn = iterator;
+                    break;
+                }
+            }
+        }
+
+        if (fn == std::end(lexer->functions)) {
+            std::string temp = "";
+            for (auto &&arg : x->func_call_args) {
+                switch (arg->value_type) {
+                    case Node::INTEGER:
+                        temp += " int,";
+                        break;
+                    case Node::FLOATING:
+                        temp += " float,";
+                        break;
+                    case Node::STRING:
+                        temp += " string,";
+                        break;
+                    case Node::BOOL:
+                        temp += " bool,";
+                        break;
+                    case Node::USER:
+                        temp += (" " + arg->user_type + ",");
+                        break;
+                }
+            }
+            temp.erase(std::begin(temp)); // erase whitespace at begin
+            temp.pop_back(); // erase comma at end
+            error("no matching function '" + fn_name + "(" + temp + ")'");
+        }
+        x->value_type = fn->second->value_type;
+        x->user_type = fn->second->user_type;
 
         if (lexer->sym == Lexer::POINT) {
             std::shared_ptr<Node> t = std::move(x);
@@ -188,25 +234,25 @@ std::shared_ptr<Node> Parser::term() {
             x->property_name = lexer->str_val;
 
             try {
-                lexer->types.at(lexer->functions.at(x->var_name)->user_type_name)->properties.at(x->property_name);
+                lexer->types.at(lexer->functions.find(x->var_name)->second->user_type)->properties.at(x->property_name);
             } catch (std::out_of_range) {
                 try {
-                    lexer->types.at(lexer->functions.at(x->var_name)->user_type_name)->methods.at(x->property_name);
+                    lexer->types.at(lexer->functions.find(x->var_name)->second->user_type)->methods.at(x->property_name);
                 }
                 catch(std::out_of_range) {
                     error(
                             "object returned by function '" +
                             x->var_name +
                             "' of class '" +
-                            lexer->functions.at(x->var_name)->user_type_name +
+                            lexer->functions.find(x->var_name)->second->user_type +
                             "' has no member named '" +
                             x->property_name + "'"
                     );
                 }
             }
 
-            x->value_type = lexer->functions.at(x->var_name)->value_type;
-            x->user_type = lexer->functions.at(x->var_name)->user_type_name;
+            x->value_type = lexer->functions.find(x->var_name)->second->value_type;
+            x->user_type = lexer->functions.find(x->var_name)->second->user_type;
 
             lexer->next_token();
 
@@ -738,9 +784,6 @@ std::shared_ptr<Node> Parser::function_def() {
     lexer->next_token(true); // eat 'function' keyword
     std::string func_name = lexer->str_val;
 
-    if (lexer->fn_defined(func_name))
-        error("function '" + func_name + "' is already defined");
-
     std::shared_ptr<Node> x = std::make_shared<Node>(Node::FUNCTION_DEFINE);
     x->location = lexer->location;
     x->var_name = func_name;
@@ -779,9 +822,48 @@ std::shared_ptr<Node> Parser::function_def() {
         }
         lexer->next_token();
     }
-    lexer->functions.emplace(func_name, std::make_shared<types::Type>(x->value_type, x->user_type));
-
     x->o2 = statement();
+
+    auto fn = std::end(lexer->functions);
+    auto fns = lexer->functions.equal_range(func_name);
+    for (auto iterator = fns.first; iterator != fns.second; ++iterator) {
+        if (iterator->second->o1->func_def_args.size() == x->o1->func_def_args.size()) {
+            auto define = std::begin(x->o1->func_def_args);
+            auto defined = std::begin(iterator->second->o1->func_def_args);
+            unsigned matches = 0;
+            for (; define != std::end(x->o1->func_def_args); ++define, ++defined) {
+                if (define->second->value_type == defined->second->value_type && define->second->user_type_name == defined->second->user_type_name) {
+                    matches++;
+                }
+            }
+            if (matches == x->o1->func_def_args.size()) {
+                std::string temp = "";
+                for (auto &&arg : x->o1->func_def_args) {
+                    switch (arg.second->value_type) {
+                        case Node::INTEGER:
+                            temp += " int,";
+                            break;
+                        case Node::FLOATING:
+                            temp += " float,";
+                            break;
+                        case Node::STRING:
+                            temp += " string,";
+                            break;
+                        case Node::BOOL:
+                            temp += " bool,";
+                            break;
+                        case Node::USER:
+                            temp += (" " + arg.second->user_type_name + ",");
+                            break;
+                    }
+                }
+                temp.erase(std::begin(temp)); // erase whitespace at begin
+                temp.pop_back(); // erase comma at end
+                error("function '" + func_name + "(" + temp + ")' is already defined");
+            }
+        }
+    }
+    lexer->functions.emplace(func_name, x);
 
     for (auto &&var : last_vars) {
         lexer->vars.erase(var);

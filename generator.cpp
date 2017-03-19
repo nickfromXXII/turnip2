@@ -786,23 +786,42 @@ void Generator::generate(const std::shared_ptr<Node>& n) {
                 emitLocation(n);
             }
 
-            Function *callee = functions.at(n->var_name); // get the function's prototype
-
-            if (callee->arg_size() != n->func_call_args.size()) { // check number of arguments in prototype and in calling
-                error(
-                        n->location.line,
-                        "invalid number arguments (" +
-                        std::to_string(n->func_call_args.size()) +
-                        ") , expected " +
-                        std::to_string(callee->arg_size())
-                );
-            }
-
             std::vector<Value *> args; // generate values of arguments
             for (auto &&arg : n->func_call_args) {
                 generate(arg); // generate value
                 args.emplace_back(stack.top()); // take it from the stack
                 stack.pop(); // erase it from the stack
+            }
+
+            Function *callee;
+            auto fn_pos = std::end(functions);
+            auto fns = functions.equal_range(n->var_name);
+            for (auto iterator = fns.first; iterator != fns.second; ++iterator) {
+                if (iterator->second->arg_size() == n->func_call_args.size()) {
+                    auto def = std::begin(iterator->second->args());
+                    auto call = std::begin(n->func_call_args);
+                    unsigned matches = 0;
+                    for (; def != std::end(iterator->second->args()); ++def, ++call) {
+                        if (def->getType()->isIntegerTy(32) && call->get()->value_type == Node::INTEGER) {
+                            matches++;
+                        } else if (def->getType()->isDoubleTy() && call->get()->value_type == Node::FLOATING) {
+                            matches++;
+                        } else if (def->getType() == Type::getInt8PtrTy(context) && call->get()->value_type == Node::STRING) {
+                            matches++;
+                        } else if (def->getType()->isIntegerTy(1) && call->get()->value_type == Node::BOOL) {
+                            matches++;
+                        } else if (PointerType::get(user_types.at(call->get()->user_type)->llvm_type, 0) && call->get()->value_type == Node::USER) {
+                            matches++;
+                        }
+                    }
+                    if (matches == iterator->second->arg_size()) {
+                        fn_pos = iterator;
+                        break;
+                    }
+                }
+            }
+            if (fn_pos != std::end(functions)) {
+                callee = fn_pos->second;
             }
 
             Value* call; // generate call

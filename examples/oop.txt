@@ -33,13 +33,21 @@ class Number <- Int { // derived class
 
 function foo(n: Number) : int
 {
-    n.add(7); # correct
+    n.add(7);
+    return n.get();
+}
+
+function foo(a: int, b: int) : int
+{
+    return a+b;
 }
 
 function main()  # entry point
 {
     var I: Int = Int(5);
     var N: Number = Number(I.get());
-    foo(N);
-    println N.get();
+    println foo(N);
+    println foo(1, 2);
 }
+
+
